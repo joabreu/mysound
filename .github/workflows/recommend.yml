@@ -19,8 +19,10 @@ jobs:
     - name: Install dependencies
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
-        source $HOME/.local/bin/env
         uv pip install -e .
     - name: Run
+      env:
+        SPOTIPY_CLIENT_ID: ${{ secrets.SPOTIPY_CLIENT_ID }}
+        SPOTIPY_CLIENT_SECRET: ${{ secrets.SPOTIPY_CLIENT_SECRET }}
       run: |
         uv run python main.py
