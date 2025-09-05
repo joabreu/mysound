@@ -19,7 +19,7 @@ repos:
     -   id: pre-commit-update
 
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.11
+    rev: v0.12.12
     hooks:
     -   id: ruff
         args: ['--fix', '--line-length=120', '--exit-non-zero-on-fix', '--show-fixes']
@@ -83,12 +83,8 @@ repos:
     rev: v1.17.1
     hooks:
     -   id: mypy
-        args: [
-          --disallow-untyped-defs,
-          --disallow-incomplete-defs,
-          --disallow-untyped-calls,
-          --follow-imports, 'normal',
-          --ignore-missing-imports
-        ]
+        args: [--disallow-untyped-defs, --disallow-incomplete-defs,
+              --disallow-untyped-calls, --follow-imports, 'normal',
+              --ignore-missing-imports]
         additional_dependencies: [types-python-dateutil, types-requests,
               types-toml, types-pytz, types-PyYAML]
