@@ -1,31 +1,29 @@
 """Main module for mysound recommender."""
 
 import os
-from typing import Any, Dict, List
+from typing import Any, List
 
-import musicbrainzngs
 import numpy as np
-import requests
 import spotipy
 from dotenv import load_dotenv
+from musicbrainzngs import musicbrainz
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
 
 USER_RECENT = 10
-USER_GLOBAL = 50
-ARTIST_SIMILAR = 5
-SIM_THRESHOLD = 0.28
+USER_GLOBAL = 30
+ARTIST_SIMILAR = 10
+SIM_THRESHOLD = 0.35
+MAX_NEW = 50
 
 load_dotenv()
 
-LB_HEADERS = {
-    "User-Agent": f"MyApp/1.0 (ID={os.getenv('LB_CLIENT_ID')})",
-    "Authorization": f"Token {os.getenv('LB_CLIENT_SECRET')}",
-}
-
 SCOPES = ["user-top-read", "playlist-modify-private", "user-read-recently-played", "playlist-modify-public"]
+
+musicbrainz.set_useragent("spotify-recommender-demo", "0.1", "youremail@example.com")
+musicbrainz.set_rate_limit(False)
 
 
 def sp_client() -> Any:
@@ -43,91 +41,106 @@ def sp_client() -> Any:
     )
 
 
-def mb_client() -> None:
-    """Set the MusicBrainz API."""
-    musicbrainzngs.set_useragent("spotify-recommender-demo", "0.1", "youremail@example.com")
-    musicbrainzngs.auth(os.getenv("MB_USER"), os.getenv("MB_PASSWORD"))
-    musicbrainzngs.set_rate_limit(False)
+def order_filter_tags(tag_list: List, prev_list: List | None = None, token: str = "name") -> List:
+    """Order and filter music tags."""
+    tags = list(set(sorted([(t[token], t["count"]) for t in tag_list], key=lambda p: p[1], reverse=True)))
+    tags = [t[0] for t in tags]
+    if prev_list is not None:
+        tags = prev_list + tags
+    return list(set(tags))
 
 
 def mb_artist_genres(artist_name: str) -> List | None:
     """Fetch MusicBrainz tags/genres for an artist name."""
-    result = musicbrainzngs.search_artists(artist=artist_name, limit=1)
+    result = musicbrainz.search_artists(artist=artist_name, limit=1)
     if result["artist-list"]:
         mbid = result["artist-list"][0]["id"]
-        artist = musicbrainzngs.get_artist_by_id(mbid, includes=["tags", "ratings"])
-        tags = [t["name"] for t in artist["artist"].get("tag-list", [])]
-        tags.extend([t["rating"] for t in artist["artist"].get("ratings", [])])
+        artist = musicbrainz.get_artist_by_id(mbid, includes=["tags"])
+        tags = order_filter_tags(tag_list=artist["artist"].get("tag-list", []))
         return tags
     return None
 
 
-def get_artist_top_tracks(artist_name: str, limit: int = 10) -> List:
-    """Get top and similar tracks for artist."""
-    result = musicbrainzngs.search_artists(artist=artist_name, limit=1)
-    if result["artist-list"]:
-        mbid = result["artist-list"][0]["id"]
-    else:
-        return []
-
-    url = f"https://api.listenbrainz.org/1/lb-radio/artist/{mbid}"
-    params: Dict[str, Any] = {
-        "mode": "easy",
-        "pop_begin": 0,
-        "pop_end": 100,
-        "max_similar_artists": limit,
-        "max_recordings_per_artist": 1,
-    }
-    resp = requests.get(url, params=params, headers=LB_HEADERS)
-
-    data = []
-    for r in resp.json().values():
-        data.append(
-            {
-                "similar_artist_mbid": r[0]["similar_artist_mbid"],
-                "name": r[0]["similar_artist_name"],
-            }
-        )
-
+def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: List | None = None) -> List:
+    """Add artist genres and tracks."""
     tracks = []
-    mb_genres = mb_artist_genres(artist_name)
-    result = musicbrainzngs.search_artists(tag=mb_genres, limit=limit, offset=1)
-    for r in result["artist-list"]:
-        data.append(
-            {
-                "similar_artist_mbid": r["id"],
-                "name": r["name"],
-            }
-        )
+    for r in releases["release-list"]:
+        if "id" in r:
+            t = musicbrainz.browse_recordings(release=r["id"], includes=["tags"])
+        else:
+            t = r
 
-    if len(data) > 0:
-        for row in data[: min(len(data), limit)]:
-            url = f"https://api.listenbrainz.org/1/popularity/top-recordings-for-artist/{row['similar_artist_mbid']}"
-            params = {"limit": limit}
-            resp = requests.get(url, params=params, headers=LB_HEADERS)
-            tracks_artist = resp.json()
-            for t in tracks_artist[:limit]:
-                tracks.append(
-                    {
-                        "name": t["recording_name"],
-                        "artists": [{"name": t["artist_name"]}],
-                    }
-                )
-
+        for t_1 in t["recording-list"]:
+            tracks.append(
+                {
+                    "name": t_1["title"],
+                    "artists": [{"name": artist_name}],
+                    "tags": order_filter_tags(t_1.get("tag-list", []), prev_list=prev_tags),
+                }
+            )
     return tracks
 
 
-def track_description(track_name: str, artist_name: str) -> str:
+def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None, limit: int = 10) -> None:
+    """Get single artist tracks."""
+    if track_name is None:
+        releases = musicbrainz.get_artist_by_id(id=artist["id"], includes=["releases", "tags"])
+        releases = releases["artist"]
+    else:
+        releases = musicbrainz.search_recordings(artist=artist["name"], recording=track_name, limit=limit)
+        releases = {"release-list": [releases]}
+
+    releases_tags = order_filter_tags(artist.get("tag-list", []))
+    releases_tags = releases_tags + order_filter_tags(releases.get("tag-list", []))
+    tracks[artist["name"]] = {
+        "id": artist["id"],
+        "releases": releases,
+        "genres": releases_tags,
+        "tracks": add_artist_genres_and_tracks(artist["name"], releases, prev_tags=releases_tags),
+    }
+
+    # Update with track info
+    full_tags = []
+    for g in tracks[artist["name"]]["tracks"]:
+        full_tags.extend(g["tags"])
+    tracks[artist["name"]]["genres"] = list(set(tracks[artist["name"]]["genres"] + full_tags))
+    print(artist["name"], tracks[artist["name"]]["genres"])
+
+
+def get_artist_top_tracks(tracks: dict, artist_name: str, track_name: str | None = None, limit: int = 10) -> None:
+    """Get top and similar tracks for artist."""
+    if artist_name not in tracks.keys():
+        result = musicbrainz.search_artists(artist=artist_name, limit=1, strict=True)
+        if len(result["artist-list"]) > 0:
+            artist = result["artist-list"][0]
+        else:
+            return
+
+        get_artist_tracks(tracks, artist, track_name, limit)
+    elif limit > 1:
+        artist = tracks[artist_name]
+        result = musicbrainz.search_artists(tag=artist["genres"], limit=limit, offset=0)
+        for r in result["artist-list"]:
+            if r["name"] in tracks.keys():
+                continue
+            try:
+                similar_artist = musicbrainz.search_artists(artist=r["name"], limit=1, strict=True)
+                for a in similar_artist["artist-list"]:
+                    get_artist_tracks(tracks, a, track_name=None, limit=limit)
+            except musicbrainz.MusicBrainzError:
+                continue
+
+
+def track_description(mb_genres: List | None) -> str:
     """Build description string enriched with MusicBrainz genres."""
-    mb_genres = mb_artist_genres(artist_name)
-    genres_str = ", ".join(mb_genres) if mb_genres else "unknown"
-    return f"Song: {track_name} | Artist: {artist_name} | Genres: {genres_str}"
+    return ", ".join(mb_genres) if mb_genres is not None else ""
 
 
 def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> List:
     """Get current user recently played tracks and top tracks."""
-    top = [t["track"] for t in tqdm(sp.current_user_recently_played(limit=limit_r)["items"])]
-    top.extend(sp.current_user_top_tracks(limit=limit_t)["items"])
+    top = [t["track"] for t in sp.current_user_recently_played(limit=limit_r)["items"]]
+    top.extend(sp.current_user_top_tracks(limit=limit_r, time_range="short_term")["items"])
+    top.extend(sp.current_user_top_tracks(limit=limit_t, time_range="long_term")["items"])
     return top
 
 
@@ -137,20 +150,37 @@ def find_uri(track: str, artist: str) -> str | None:
     return t["tracks"]["items"][0]["uri"] if len(t["tracks"]["items"]) else None
 
 
-def generate_recommends(top_tracks: List, latest_tracks: List) -> List:
+def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     """Generate recommendations using Tfid vectorizer."""
-    top_descs = [track_description(t["name"], t["artists"][0]["name"]) for t in tqdm(top_tracks)]
-    cand_descs = [track_description(t["name"], t["artists"][0]["name"]) for t in tqdm(latest_tracks)]
+    top_descs = []
+    for a in tqdm(top_tracks.keys()):
+        for t in top_tracks[a]["tracks"]:
+            top_descs.append(track_description(t["tags"]))
 
-    vectorizer = TfidfVectorizer(stop_words="english")
+    cand_descs = []
+    tracks_descs = []
+    for a in tqdm(latest_tracks.keys()):
+        for t in latest_tracks[a]["tracks"]:
+            cand_descs.append(track_description(t["tags"]))
+            tracks_descs.append((t["artists"][0]["name"], t["name"], t["tags"]))
+
+    vectorizer = TfidfVectorizer(
+        stop_words=None,
+        token_pattern=r"(?u)\b\w\w+[^,]+\b",
+        ngram_range=(1, 2),
+        use_idf=False,
+        min_df=0.00,
+    )
     X = vectorizer.fit_transform(top_descs + cand_descs)
 
     X_top = X[: len(top_descs)]
     X_cand = X[len(top_descs) :]
 
     sims = cosine_similarity(np.asarray(X_top.mean(axis=0)), X_cand).ravel()
-    ranked = sorted(zip(latest_tracks, cand_descs, sims), key=lambda p: p[2], reverse=True)
-
+    # sims = cosine_similarity(X_top, X_cand)
+    # sims = np.mean(sims, axis=0)  # sims.mean(axis=0)
+    print(len(sims), len(tracks_descs))
+    ranked = sorted(zip(tracks_descs, sims), key=lambda p: p[1], reverse=True)
     return ranked
 
 
@@ -159,46 +189,48 @@ def create_playlist(recommended: List) -> None:
     user_name = sp.current_user()["uri"].split(":")[2]
     if len(recommended):
         playlist_id = sp.user_playlist_create(user=user_name, name="RECOMMENDED")["id"]
-        for t in recommended:
-            uri = find_uri(t["name"], t["artists"][0]["name"])
+        for artist, track in recommended:
+            uri = find_uri(track, artist)
             if uri is not None:
                 sp.user_playlist_add_tracks(user=user_name, playlist_id=playlist_id, tracks=[uri])
 
 
 def recommend() -> None:
     """Generate recommendations for user."""
-    top_tracks = get_top_tracks(limit_r=USER_RECENT, limit_t=USER_GLOBAL)
-    latest_tracks = []
-    for f in tqdm(top_tracks):
-        latest_tracks.extend(get_artist_top_tracks(artist_name=f["artists"][0]["name"], limit=ARTIST_SIMILAR))
+    tracks = {}
 
-    ranked = generate_recommends(top_tracks, latest_tracks)
+    user_tracks: dict = {}
+    top_tracks_user = get_top_tracks(limit_r=USER_RECENT, limit_t=USER_GLOBAL)
+    for f in tqdm(top_tracks_user):
+        track = f["name"]
+        for artist in f["artists"]:
+            get_artist_top_tracks(user_tracks, artist_name=artist["name"], track_name=track, limit=1)
+            tracks[artist["name"]] = [track]
+
+    latest_tracks = user_tracks.copy()
+    for k in tqdm(user_tracks.keys()):
+        get_artist_top_tracks(latest_tracks, artist_name=k, limit=ARTIST_SIMILAR)
+
+    ranked = generate_recommends(user_tracks, latest_tracks)
 
     print("Top recommendations:")
     recommended = []
-    tracks = {}
-    for t in top_tracks:
-        artist = t["artists"][0]["name"]
-        track = t["name"]
-
-        tracks[artist] = track
-
-    for i, (t, _, score) in enumerate(ranked, start=0):
-        artist = t["artists"][0]["name"]
-        track = t["name"]
-
+    for i, ((artist, track, d), score) in enumerate(ranked, start=0):
         if artist in tracks:
             continue
 
-        tracks[artist] = track
+        tracks[artist] = [track]
         if score >= SIM_THRESHOLD:
-            print(f"{i:2d}. {artist} — {track}  (sim={score:.2f})")
-            recommended.append(t)
+            print(f"{i:2d}. {artist} — {track}  (sim={score:.2f}, d='{d}')")
+            recommended.append((artist, track))
+            if len(recommended) >= MAX_NEW:
+                break
+        elif i < MAX_NEW:
+            print(f"SKIPPED: {i:2d}. {artist} — {track}  (sim={score:.2f}, d='{d}')")
 
     create_playlist(recommended)
 
 
 if __name__ == "__main__":
     sp = sp_client()
-    mb_client()
     recommend()
