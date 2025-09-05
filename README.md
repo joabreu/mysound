@@ -1,6 +1,6 @@
 ## Setup
 
-Get API keys for Spotify and MusicBrainz and create .env with it:
+Get API keys from Spotify for your user account and create .env with it:
 
 ```
 echo "SPOTIPY_CLIENT_ID=<client-id>" > .env
