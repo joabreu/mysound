@@ -47,6 +47,7 @@ def order_filter_tags(tag_list: List, prev_list: List | None = None, token: str 
     tags = [t[0] for t in tags]
     if prev_list is not None:
         tags = prev_list + tags
+    tags = [t for t in tags if len(t)]
     return list(set(tags))
 
 
