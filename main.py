@@ -1,6 +1,7 @@
 """Main module for mysound recommender."""
 
 import os
+import random
 from typing import Any, List
 
 import numpy as np
@@ -226,7 +227,8 @@ def create_playlist(recommended: List) -> None:
     """Create new playlist given recommended tracks."""
     user_name = sp.current_user()["uri"].split(":")[2]
     if len(recommended):
-        playlist_id = sp.user_playlist_create(user=user_name, name="RECOMMENDED")["id"]
+        playlist_id = sp.user_playlist_create(user=user_name, name="Recommended by MySound")["id"]
+        random.shuffle(recommended)
         for artist, track in recommended:
             uri = find_uri(track, artist)
             if uri is not None:
