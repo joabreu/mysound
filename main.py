@@ -16,6 +16,7 @@ from tqdm import tqdm
 USER_RECENT = 10
 USER_GLOBAL = 30
 ARTIST_SIMILAR = 20
+ARTIST_SIMILAR_RECS = 10
 SIM_THRESHOLD = 0.35
 MAX_NEW = 50
 
@@ -122,12 +123,11 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
 def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None, limit: int = 10) -> None:
     """Get single artist tracks."""
     if track_name is None:
-        releases = musicbrainz.get_artist_by_id(id=artist["id"], includes=["releases", "tags"])
-        releases = releases["artist"]
+        releases = musicbrainz.browse_recordings(artist=artist["id"], includes=["tags"], limit=limit)
     else:
         releases = musicbrainz.search_recordings(artist=artist["name"], recording=track_name, limit=limit)
-        releases = {"release-list": [releases]}
 
+    releases = {"release-list": [releases]}
     releases_tags = order_filter_tags(artist.get("tag-list", []))
     releases_tags = releases_tags + order_filter_tags(releases.get("tag-list", []))
     tracks[artist["name"]] = {
@@ -164,7 +164,7 @@ def get_artist_top_tracks(tracks: dict, artist_name: str, track_name: str | None
             try:
                 similar_artist = musicbrainz.search_artists(artist=r["name"], limit=1, strict=True)
                 for a in similar_artist["artist-list"]:
-                    get_artist_tracks(tracks, a, track_name=None, limit=limit)
+                    get_artist_tracks(tracks, a, None, ARTIST_SIMILAR_RECS)
             except musicbrainz.MusicBrainzError:
                 continue
 
