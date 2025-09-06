@@ -81,6 +81,7 @@ def deezer_track_description_from_name(artist_name: str, track_name: str) -> Lis
     nb_fan = 0
     track = results[0]
     artist_id = track.get("artist", {}).get("id")
+    rank = int(track.get("rank", 0))
     if artist_id:
         artist_info = requests.get(f"https://api.deezer.com/artist/{artist_id}")
         if artist_info.status_code == 200:
@@ -89,6 +90,7 @@ def deezer_track_description_from_name(artist_name: str, track_name: str) -> Lis
 
     return [
         f"fans_{int(np.log1p(nb_fan))}",
+        f"rank_{int(np.log1p(rank))}",
         str(genre),
     ]
 
