@@ -35,7 +35,7 @@ For recommended artists:
 
 For playlist creation:
 
-- `SIM_THRESHOLD`: Similarity threshold lowerbound, ranges from 0.0 to 1.0.
+- `SIM_THRESHOLD`: Similarity threshold lowerbound, ranges from `0.0` to `1.0`.
 - `MAX_NEW`: Maximum number of tracks to add in playlist which are above the `SIM_THRESHOLD`.
 
 ## Dev
