@@ -235,6 +235,21 @@ def create_playlist(recommended: List) -> None:
                 sp.user_playlist_add_tracks(user=user_name, playlist_id=playlist_id, tracks=[uri])
 
 
+def pick_from_sims(ranked: List) -> List:
+    """Pick random track from candidates that have a given sim."""
+    sims = []
+    for _, score in ranked:
+        sims.append(score)
+    sims = np.array(sims)
+
+    ranked_new = []
+    for _, score in ranked:
+        matching_indices = np.where(sims == score)[0]
+        chosen_idx = np.random.choice(matching_indices)
+        ranked_new.append(ranked[chosen_idx])
+    return ranked_new
+
+
 def recommend() -> None:
     """Generate recommendations for user."""
     tracks = {}
@@ -252,6 +267,7 @@ def recommend() -> None:
         get_artist_top_tracks(latest_tracks, artist_name=k, limit=ARTIST_SIMILAR)
 
     ranked = generate_recommends(user_tracks, latest_tracks)
+    ranked = pick_from_sims(ranked)
 
     print("Top recommendations:")
     recommended = []
