@@ -4,6 +4,7 @@ import os
 from typing import Any, List
 
 import numpy as np
+import requests
 import spotipy
 from dotenv import load_dotenv
 from musicbrainzngs import musicbrainz
@@ -62,6 +63,36 @@ def mb_artist_genres(artist_name: str) -> List | None:
     return None
 
 
+def deezer_track_description_from_name(artist_name: str, track_name: str) -> List:
+    """Search Deezer for a track by artist and title."""
+    query = f"{artist_name} {track_name}"
+    url = "https://api.deezer.com/search"
+    r = requests.get(url, params={"q": query, "limit": "1"})
+
+    if r.status_code != 200:
+        return []
+
+    results = r.json().get("data", [])
+    if not results:
+        return []
+
+    # Try to fetch genre from album/artist (Deezer doesn’t give track-level genres)
+    genre = ""
+    nb_fan = 0
+    track = results[0]
+    artist_id = track.get("artist", {}).get("id")
+    if artist_id:
+        artist_info = requests.get(f"https://api.deezer.com/artist/{artist_id}")
+        if artist_info.status_code == 200:
+            genre = artist_info.json().get("genre_id", "")
+            nb_fan = int(artist_info.json().get("id", 0))
+
+    return [
+        f"fans_{int(np.log1p(nb_fan))}",
+        str(genre),
+    ]
+
+
 def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: List | None = None) -> List:
     """Add artist genres and tracks."""
     tracks = []
@@ -72,11 +103,15 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
             t = r
 
         for t_1 in t["recording-list"]:
+            tags: List = []
+            if prev_tags is not None:
+                tags = tags + prev_tags
+            tags = tags + deezer_track_description_from_name(artist_name, t_1["title"])
             tracks.append(
                 {
                     "name": t_1["title"],
                     "artists": [{"name": artist_name}],
-                    "tags": order_filter_tags(t_1.get("tag-list", []), prev_list=prev_tags),
+                    "tags": order_filter_tags(t_1.get("tag-list", []), prev_list=tags),
                 }
             )
     return tracks
