@@ -4,7 +4,7 @@ A Spotify recommender system that creates personalized playlists based on your p
 
 ## Setup
 
-Get API keys from [Spotify for developers](https://developer.spotify.com/dashboard/create) and create .env with them:
+Get API keys from [Spotify for developers](https://developer.spotify.com/dashboard/create) and create `.env` with them:
 
 ```
 echo "SPOTIPY_CLIENT_ID=<client-id>" > .env
@@ -15,9 +15,10 @@ echo "SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback" >> .env
 ## For GitHub Actions
 
 - Save all .env credentials in GitHub secrets.
-- Setup the repo first in your local env. Login using OAUTH then save the `.cache-spotify` JSON output into the GitHub secret `SPOTIFY_CACHE_JSON`.
+- Setup the repo first in your local env.
+- Login using OAUTH then save the `.cache-spotify` JSON file output into the GitHub secret `SPOTIFY_CACHE_JSON`.
 
-Default workflow in this repo will run everyday and create a new playlist.
+Default workflow in this repo will run everyday at midnight and create a new playlist.
 
 ## Specification
 
