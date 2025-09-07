@@ -19,7 +19,7 @@ USER_RECENT = 50
 USER_GLOBAL = 20
 ARTIST_SIMILAR = 15
 ARTIST_SIMILAR_RECS = 15
-SIM_THRESHOLD = 0.60
+SIM_THRESHOLD = 0.30
 MAX_NEW = 50
 
 load_dotenv()
@@ -215,7 +215,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 2),
         use_idf=True,
-        min_df=0.00,
+        min_df=0.01,
     )
     X = vectorizer.fit_transform(top_descs + cand_descs)
 
