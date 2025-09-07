@@ -213,8 +213,8 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     vectorizer = TfidfVectorizer(
         stop_words=None,
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
-        ngram_range=(1, 2),
-        use_idf=True,
+        ngram_range=(1, 3),
+        use_idf=False,
         min_df=0.01,
     )
     X = vectorizer.fit_transform(top_descs + cand_descs)
