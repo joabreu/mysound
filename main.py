@@ -8,6 +8,7 @@ import numpy as np
 import requests
 import spotipy
 from dotenv import load_dotenv
+from fuzzywuzzy import fuzz
 from musicbrainzngs import musicbrainz
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -186,7 +187,13 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> List:
 def find_uri(track: str, artist: str) -> str | None:
     """Return a track Spotify URI given track name and artist name."""
     t = sp.search(q="artist:" + artist + " track:" + track, limit=1, type="track")
-    return t["tracks"]["items"][0]["uri"] if len(t["tracks"]["items"]) else None
+    if len(t["tracks"]["items"]):
+        sp_track = t["tracks"]["items"][0]
+        sp_artist = sp_track["artists"][0]["name"]
+        sp_name = sp_track["name"]
+        if fuzz.partial_ratio(sp_artist, artist) > 90 and fuzz.partial_ratio(sp_name, track) > 90:
+            return sp_track["uri"]
+    return None
 
 
 def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
