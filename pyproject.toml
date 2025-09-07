@@ -19,4 +19,4 @@ dependencies = [
 ]
 
 [tool.isort]
-known_third_party = ["dotenv", "musicbrainzngs", "numpy", "requests", "sklearn", "spotipy", "tqdm"]
+known_third_party = ["dotenv", "fuzzywuzzy", "musicbrainzngs", "numpy", "requests", "sklearn", "spotipy", "tqdm"]
