@@ -2,7 +2,8 @@
 
 import os
 import random
-from typing import Any, List
+from datetime import datetime
+from typing import Any, List, Tuple
 
 import numpy as np
 import requests
@@ -98,6 +99,18 @@ def deezer_track_description_from_name(artist_name: str, track_name: str) -> Lis
     ]
 
 
+def find_sptrack(track: str, artist: str) -> Tuple[str | None, List]:
+    """Return a track Spotify given track name and artist name."""
+    t = sp.search(q="artist:" + artist + " track:" + track, limit=1, type="track")
+    if len(t["tracks"]["items"]):
+        sp_track = t["tracks"]["items"][0]
+        sp_name = sp_track["name"]
+        for a in sp_track["artists"]:
+            if fuzz.partial_ratio(a, artist) > 90 and fuzz.partial_ratio(sp_name, track) > 90:
+                return sp_track["uri"], [f"popularity_{int(np.log1p(sp_track['popularity']))}"]
+    return None, [""]
+
+
 def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: List | None = None) -> List:
     """Add artist genres and tracks."""
     tracks = []
@@ -111,12 +124,20 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
             tags: List = []
             if prev_tags is not None:
                 tags = tags + prev_tags
+
+            try:
+                uri, sp_tags = find_sptrack(track=t_1["title"], artist=artist_name)
+            except spotipy.exceptions.SpotifyException:
+                uri, sp_tags = None, [""]
+
             tags = tags + deezer_track_description_from_name(artist_name, t_1["title"])
+            tags = tags + sp_tags
             tracks.append(
                 {
                     "name": t_1["title"],
                     "artists": [{"name": artist_name}],
                     "tags": order_filter_tags(t_1.get("tag-list", []), prev_list=tags),
+                    "uri": uri,
                 }
             )
     return tracks
@@ -208,7 +229,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     for a in tqdm(latest_tracks.keys()):
         for t in latest_tracks[a]["tracks"]:
             cand_descs.append(track_description(t["tags"]))
-            tracks_descs.append((t["artists"][0]["name"], t["name"], t["tags"]))
+            tracks_descs.append((t["artists"][0]["name"], t["name"], t["tags"], t["uri"]))
 
     vectorizer = TfidfVectorizer(
         stop_words=None,
@@ -234,12 +255,12 @@ def create_playlist(recommended: List) -> None:
     """Create new playlist given recommended tracks."""
     user_name = sp.current_user()["uri"].split(":")[2]
     if len(recommended):
-        playlist_id = sp.user_playlist_create(user=user_name, name="Recommended by MySound")["id"]
+        playlist_date = datetime.now().strftime("%b/%-d")
+        playlist_name = f"Recommended by MySound ({playlist_date})"
+        playlist_id = sp.user_playlist_create(user=user_name, name=playlist_name)["id"]
         random.shuffle(recommended)
-        for artist, track in recommended:
-            uri = find_uri(track, artist)
-            if uri is not None:
-                sp.user_playlist_add_tracks(user=user_name, playlist_id=playlist_id, tracks=[uri])
+        for uri in recommended:
+            sp.user_playlist_add_tracks(user=user_name, playlist_id=playlist_id, tracks=[uri])
 
 
 def pick_from_sims(ranked: List) -> List:
@@ -278,14 +299,15 @@ def recommend() -> None:
 
     print("Top recommendations:")
     recommended = []
-    for i, ((artist, track, d), score) in enumerate(ranked, start=0):
+    for i, ((artist, track, d, uri), score) in enumerate(ranked, start=0):
         if artist in tracks:
             continue
 
         tracks[artist] = [track]
         if score >= SIM_THRESHOLD:
             print(f"{i:2d}. {artist} — {track}  (sim={score:.2f}, d='{d}')")
-            recommended.append((artist, track))
+            if uri is not None:
+                recommended.append(uri)
             if len(recommended) >= MAX_NEW:
                 break
         elif i < MAX_NEW:
@@ -294,6 +316,7 @@ def recommend() -> None:
     create_playlist(recommended)
 
 
+sp = sp_client()
+
 if __name__ == "__main__":
-    sp = sp_client()
     recommend()
