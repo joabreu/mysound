@@ -235,7 +235,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 3),
         use_idf=False,
-        min_df=0.01,
+        min_df=0.05,
     )
     X = vectorizer.fit_transform(top_descs + cand_descs)
 
