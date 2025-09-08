@@ -304,13 +304,11 @@ def recommend() -> None:
 
         tracks[artist] = [track]
         if score >= SIM_THRESHOLD:
-            print(f"{i:2d}. {artist} — {track}  (sim={score:.2f}, d='{d}')")
             if uri is not None:
+                print(f"{i:2d}. {artist} — {track}  (sim={score:.2f}, d='{d}')")
                 recommended.append(uri)
-            if len(recommended) >= MAX_NEW:
-                break
-        elif i < MAX_NEW:
-            print(f"SKIPPED: {i:2d}. {artist} — {track}  (sim={score:.2f}, d='{d}')")
+        if len(recommended) >= MAX_NEW:
+            break
 
     create_playlist(recommended)
 
