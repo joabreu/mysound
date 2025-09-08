@@ -142,9 +142,11 @@ def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None,
     else:
         releases = musicbrainz.search_recordings(artist=artist["name"], recording=track_name, limit=limit)
 
-    releases = {"release-list": [releases]}
     releases_tags = order_filter_tags(artist.get("tag-list", []))
     releases_tags = releases_tags + order_filter_tags(releases.get("tag-list", []))
+
+    releases = {"release-list": [releases]}
+
     tracks[artist["name"]] = {
         "id": artist["id"],
         "releases": releases,
