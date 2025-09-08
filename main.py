@@ -90,7 +90,7 @@ def deezer_track_description_from_name(artist_name: str, track_name: str) -> Lis
 
 
 @musicbrainz._rate_limit  # noqa: W0212 # pylint:disable=protected-access
-def find_sptrack(track: str, artist: str) -> Tuple[str | None, List]:
+def find_sptrack(track: str, artist: str) -> Tuple[str | None, str | None, List]:
     """Return a track Spotify given track name and artist name."""
     query = "artist:" + artist + " track:" + track
     t = sp.search(q=query[: min(250, len(query))], limit=1, type="track")
@@ -99,8 +99,15 @@ def find_sptrack(track: str, artist: str) -> Tuple[str | None, List]:
         sp_name = sp_track["name"]
         for a in sp_track["artists"]:
             if fuzz.partial_ratio(a, artist) > 90 and fuzz.partial_ratio(sp_name, track) > 90:
-                return sp_track["uri"], [f"popularity_{int(np.log1p(sp_track['popularity']))}"]
-    return None, [""]
+                return a["id"], sp_track["uri"], [f"popularity_{int(np.log1p(sp_track['popularity']))}"]
+    return None, None, [""]
+
+
+@musicbrainz._rate_limit  # noqa: W0212 # pylint:disable=protected-access
+def find_sptags(artist_id: str) -> List:
+    """Return a genre for Spotify artist given artist ID."""
+    a = sp.artist(artist_id)
+    return a["genres"] if a is not None else [""]
 
 
 def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: List | None = None) -> List:
@@ -118,9 +125,15 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
                 tags = tags + prev_tags
 
             try:
-                uri, sp_tags = find_sptrack(track=t_1["title"], artist=artist_name)
+                aid, uri, sp_tags = find_sptrack(track=t_1["title"], artist=artist_name)
             except spotipy.exceptions.SpotifyException:
-                uri, sp_tags = None, [""]
+                aid, uri, sp_tags = None, None, [""]
+
+            try:
+                if aid is not None:
+                    sp_tags = sp_tags + find_sptags(artist_id=aid)
+            except spotipy.exceptions.SpotifyException:
+                pass
 
             tags = tags + deezer_track_description_from_name(artist_name, t_1["title"])
             tags = tags + sp_tags
