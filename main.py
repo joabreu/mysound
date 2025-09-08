@@ -7,9 +7,11 @@ from typing import Any, List, Tuple
 import numpy as np
 import requests
 import spotipy
+from datasets import load_dataset
 from dotenv import load_dotenv
 from fuzzywuzzy import fuzz
 from musicbrainzngs import musicbrainz
+from scipy.sparse import csr_matrix, hstack
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from spotipy.oauth2 import SpotifyOAuth
@@ -218,19 +220,24 @@ def find_uri(track: str, artist: str) -> str | None:
     return None
 
 
+def embed_tags(tags: List, lookup: dict, dim: int) -> np.array:
+    """Compute vectors for each tag."""
+    vectors = [lookup[t] for t in tags if t in lookup]
+    return np.mean(vectors, axis=0) if vectors else np.zeros(dim)
+
+
 def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     """Generate recommendations using Tfid vectorizer."""
-    top_descs = []
-    for a in tqdm(top_tracks.keys()):
-        for t in top_tracks[a]["tracks"]:
-            top_descs.append(track_description(t["tags"]))
-
     cand_descs = []
     tracks_descs = []
     for a in tqdm(latest_tracks.keys()):
         for t in latest_tracks[a]["tracks"]:
             cand_descs.append(track_description(t["tags"]))
             tracks_descs.append((t["artists"][0]["name"], t["name"], t["tags"], t["uri"]))
+
+    top_indices = [i for i, (a, _, _, _) in enumerate(tracks_descs) if a in top_tracks.keys()]
+    candidate_indices = [i for i in range(len(tracks_descs)) if i not in top_indices]
+    tracks_descs = [t for i, t in enumerate(tracks_descs) if i in candidate_indices]
 
     vectorizer = TfidfVectorizer(
         stop_words=None,
@@ -239,14 +246,23 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         use_idf=False,
         min_df=0.05,
     )
-    X = vectorizer.fit_transform(top_descs + cand_descs)
 
-    X_top = X[: len(top_descs)]
-    X_cand = X[len(top_descs) :]
+    X = vectorizer.fit_transform(cand_descs)
+    embedding_dim = len(next(iter(mwe_lookup.values())))
+    track_embeddings = csr_matrix(
+        np.array(
+            [
+                embed_tags(track["tags"], mwe_lookup, embedding_dim)
+                for artist in latest_tracks.values()
+                for track in artist["tracks"]
+            ]
+        )
+    )
 
-    sims = cosine_similarity(np.asarray(X_top.mean(axis=0)), X_cand).ravel()
-    # sims = cosine_similarity(X_top, X_cand)
-    # sims = np.mean(sims, axis=0)  # sims.mean(axis=0)
+    hybrid_matrix = hstack([X, track_embeddings.mean(axis=1)]).tocsr()
+    sims = cosine_similarity(
+        np.asarray(hybrid_matrix[top_indices].mean(axis=0)), hybrid_matrix[candidate_indices]
+    ).ravel()
     print(len(sims), len(tracks_descs))
     ranked = sorted(zip(tracks_descs, sims), key=lambda p: p[1], reverse=True)
     return ranked
@@ -315,6 +331,8 @@ def recommend() -> None:
 
 
 sp = sp_client()
+ds = load_dataset("seungheondoh/musical-word-embedding", split="tag")
+mwe_lookup = {row["token"]: np.array(row["vector"]) for row in ds}
 
 if __name__ == "__main__":
     recommend()
