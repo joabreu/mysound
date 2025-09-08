@@ -57,17 +57,6 @@ def order_filter_tags(tag_list: List, prev_list: List | None = None, token: str 
     return list(set(tags))
 
 
-def mb_artist_genres(artist_name: str) -> List | None:
-    """Fetch MusicBrainz tags/genres for an artist name."""
-    result = musicbrainz.search_artists(artist=artist_name, limit=1)
-    if result["artist-list"]:
-        mbid = result["artist-list"][0]["id"]
-        artist = musicbrainz.get_artist_by_id(mbid, includes=["tags"])
-        tags = order_filter_tags(tag_list=artist["artist"].get("tag-list", []))
-        return tags
-    return None
-
-
 def deezer_track_description_from_name(artist_name: str, track_name: str) -> List:
     """Search Deezer for a track by artist and title."""
     query = f"{artist_name} {track_name}"
