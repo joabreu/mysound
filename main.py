@@ -1,7 +1,6 @@
 """Main module for mysound recommender."""
 
 import os
-import random
 from datetime import datetime
 from typing import Any, List, Tuple
 
@@ -258,7 +257,6 @@ def create_playlist(recommended: List) -> None:
         playlist_date = datetime.now().strftime("%b/%-d")
         playlist_name = f"Recommended by MySound ({playlist_date})"
         playlist_id = sp.user_playlist_create(user=user_name, name=playlist_name)["id"]
-        random.shuffle(recommended)
         for uri in recommended:
             sp.user_playlist_add_tracks(user=user_name, playlist_id=playlist_id, tracks=[uri])
 
