@@ -99,7 +99,8 @@ def deezer_track_description_from_name(artist_name: str, track_name: str) -> Lis
 
 def find_sptrack(track: str, artist: str) -> Tuple[str | None, List]:
     """Return a track Spotify given track name and artist name."""
-    t = sp.search(q="artist:" + artist + " track:" + track, limit=1, type="track")
+    query = "artist:" + artist + " track:" + track
+    t = sp.search(q=query[: min(250, len(query))], limit=1, type="track")
     if len(t["tracks"]["items"]):
         sp_track = t["tracks"]["items"][0]
         sp_name = sp_track["name"]
