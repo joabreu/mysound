@@ -9,6 +9,7 @@ dependencies = [
     "fuzzywuzzy>=0.18.0",
     "musicbrainzngs>=0.7.1",
     "numpy>=2.3.2",
+    "pip-system-certs>=5.2",
     "pre-commit>=4.3.0",
     "pylistenbrainz>=0.5.1",
     "python-dotenv>=1.1.1",
