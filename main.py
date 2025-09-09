@@ -212,18 +212,6 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> List:
     return top
 
 
-def find_uri(track: str, artist: str) -> str | None:
-    """Return a track Spotify URI given track name and artist name."""
-    t = sp.search(q="artist:" + artist + " track:" + track, limit=1, type="track")
-    if len(t["tracks"]["items"]):
-        sp_track = t["tracks"]["items"][0]
-        sp_artist = sp_track["artists"][0]["name"]
-        sp_name = sp_track["name"]
-        if fuzz.partial_ratio(sp_artist, artist) > 90 and fuzz.partial_ratio(sp_name, track) > 90:
-            return sp_track["uri"]
-    return None
-
-
 def embed_tags(tags: List, lookup: dict, dim: int) -> np.array:
     """Compute vectors for each tag."""
     vectors = [lookup[t] for t in tags if t in lookup]
