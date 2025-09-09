@@ -90,7 +90,7 @@ def deezer_track_description_from_name(artist_name: str, track_name: str) -> Lis
 
 
 @musicbrainz._rate_limit  # noqa: W0212 # pylint:disable=protected-access
-def find_sptrack(track: str, artist: str) -> Tuple[str | None, str | None, List]:
+def find_sptrack(track: str, artist: str) -> Tuple[str | None, str | None, float]:
     """Return a track Spotify given track name and artist name."""
     query = "artist:" + artist + " track:" + track
     t = sp.search(q=query[: min(250, len(query))], limit=1, type="track")
@@ -99,8 +99,8 @@ def find_sptrack(track: str, artist: str) -> Tuple[str | None, str | None, List]
         sp_name = sp_track["name"]
         for a in sp_track["artists"]:
             if fuzz.partial_ratio(a, artist) > 90 and fuzz.partial_ratio(sp_name, track) > 90:
-                return a["id"], sp_track["uri"], [f"popularity_{int(np.log1p(sp_track['popularity']))}"]
-    return None, None, [""]
+                return a["id"], sp_track["uri"], np.log1p(sp_track["popularity"])
+    return None, None, 0.0
 
 
 @musicbrainz._rate_limit  # noqa: W0212 # pylint:disable=protected-access
@@ -126,15 +126,14 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
                 tags = tags + prev_tags
 
             try:
-                aid, uri, sp_tags = find_sptrack(track=t_1["title"], artist=artist_name)
+                aid, uri, sp_rank = find_sptrack(track=t_1["title"], artist=artist_name)
                 if aid is not None and sp_tags_artist is None:
                     sp_tags_artist = find_sptags(artist_id=aid)
             except spotipy.exceptions.SpotifyException:
-                uri, sp_tags = None, [""]
-                sp_tags_artist = [""]
+                uri, sp_rank = None, 0.0
+                sp_tags_artist = None
 
             tags = tags + deezer_track_description_from_name(artist_name, t_1["title"])
-            tags = tags + sp_tags
             if sp_tags_artist is not None:
                 tags = tags + sp_tags_artist
             tracks.append(
@@ -143,6 +142,7 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
                     "artists": [{"name": artist_name}],
                     "tags": order_filter_tags(t_1.get("tag-list", []), prev_list=tags),
                     "uri": uri,
+                    "rank": sp_rank,
                 }
             )
     return tracks
@@ -225,11 +225,12 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     for a in tqdm(latest_tracks.keys()):
         for t in latest_tracks[a]["tracks"]:
             cand_descs.append(track_description(t["tags"]))
-            tracks_descs.append((t["artists"][0]["name"], t["name"], t["tags"], t["uri"]))
+            tracks_descs.append((a, t["name"], t["tags"], t["uri"], t["rank"]))
 
-    top_indices = [i for i, (a, _, _, _) in enumerate(tracks_descs) if a in top_tracks.keys()]
+    top_indices = [i for i, (a, _, _, _, _) in enumerate(tracks_descs) if a in top_tracks]
     candidate_indices = [i for i in range(len(tracks_descs)) if i not in top_indices]
     tracks_descs = [t for i, t in enumerate(tracks_descs) if i in candidate_indices]
+    ranks = [r for i, (_, _, _, _, r) in enumerate(tracks_descs) if i in candidate_indices]
 
     vectorizer = TfidfVectorizer(
         stop_words=None,
@@ -255,9 +256,8 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     sims = cosine_similarity(
         np.asarray(hybrid_matrix[top_indices].mean(axis=0)), hybrid_matrix[candidate_indices]
     ).ravel()
-    print(len(sims), len(tracks_descs))
-    ranked = sorted(zip(tracks_descs, sims), key=lambda p: p[1], reverse=True)
-    return ranked
+    print(len(tracks_descs), len(top_indices), len(candidate_indices), len(sims), len(tracks_descs))
+    return sorted(zip(tracks_descs, sims, ranks), key=lambda p: (p[1], p[2]), reverse=True)
 
 
 def create_playlist(recommended: List) -> None:
@@ -291,14 +291,14 @@ def recommend() -> None:
 
     print("Top recommendations:")
     recommended = []
-    for i, ((artist, track, d, uri), score) in enumerate(ranked, start=0):
+    for i, ((artist, track, d, uri, rank), score, _) in enumerate(ranked, start=0):
         if artist in tracks:
             continue
 
         tracks[artist] = [track]
         if score >= SIM_THRESHOLD:
             if uri is not None:
-                print(f"{i:2d}. {artist} — {track}  (sim={score:.2f}, d='{d}')")
+                print(f"{i:2d}. {artist} — {track}  (rank={rank:.2f}, sim={score:.2f}, d='{d}')")
                 recommended.append(uri)
         if len(recommended) >= MAX_NEW:
             break
