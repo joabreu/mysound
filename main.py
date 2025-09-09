@@ -14,6 +14,7 @@ from musicbrainzngs import musicbrainz
 from scipy.sparse import csr_matrix, hstack
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import normalize
 from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
 
@@ -252,7 +253,9 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         )
     )
 
-    hybrid_matrix = hstack([X, track_embeddings.mean(axis=1)]).tocsr()
+    X = normalize(X, norm="l2")
+    track_embeddings = normalize(track_embeddings, norm="l2")
+    hybrid_matrix = hstack([X, track_embeddings]).tocsr()
     sims = cosine_similarity(
         np.asarray(hybrid_matrix[top_indices].mean(axis=0)), hybrid_matrix[candidate_indices]
     ).ravel()
