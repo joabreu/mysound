@@ -207,7 +207,7 @@ def track_description(mb_genres: List | None) -> str:
 def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> List:
     """Get current user recently played tracks and top tracks."""
     top = [t["track"] for t in sp.current_user_recently_played(limit=limit_r)["items"]]
-    top.extend(sp.current_user_top_tracks(limit=limit_r, time_range="short_term")["items"])
+    top.extend(sp.current_user_top_tracks(limit=limit_t, time_range="short_term")["items"])
     top.extend(sp.current_user_top_tracks(limit=limit_t, time_range="long_term")["items"])
     return top
 
