@@ -18,11 +18,11 @@ from sklearn.preprocessing import normalize
 from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
 
-USER_RECENT = 30
-USER_GLOBAL = 30
-ARTIST_SIMILAR = 10
-ARTIST_SIMILAR_RECS = 10
-SIM_THRESHOLD = 0.30
+USER_RECENT = 10
+USER_GLOBAL = 50
+ARTIST_SIMILAR = 5
+ARTIST_SIMILAR_RECS = 15
+SIM_THRESHOLD = 0.60
 MAX_NEW = 50
 
 load_dotenv()
