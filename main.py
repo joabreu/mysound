@@ -178,7 +178,7 @@ def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None,
 
 def get_artist_top_tracks(tracks: dict, artist_name: str, track_name: str | None = None, limit: int = 10) -> None:
     """Get top and similar tracks for artist."""
-    if artist_name not in tracks.keys():
+    if artist_name not in tracks:
         result = musicbrainz.search_artists(artist=artist_name, limit=1, strict=True)
         if len(result["artist-list"]) > 0:
             artist = result["artist-list"][0]
@@ -190,7 +190,7 @@ def get_artist_top_tracks(tracks: dict, artist_name: str, track_name: str | None
         artist = tracks[artist_name]
         result = musicbrainz.search_artists(tag=artist["genres"], limit=limit, offset=0)
         for r in result["artist-list"]:
-            if r["name"] in tracks.keys():
+            if r["name"] in tracks:
                 continue
             try:
                 similar_artist = musicbrainz.search_artists(artist=r["name"], limit=1, strict=True)
