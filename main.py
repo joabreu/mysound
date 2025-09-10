@@ -279,7 +279,9 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     track_embeddings = normalize(track_embeddings, norm="l2")
     hybrid_matrix = hstack([X, track_embeddings]).tocsr()
     sims = cosine_similarity(
-        np.asarray(hybrid_matrix[top_indices].mean(axis=0)), hybrid_matrix[candidate_indices]
+        # np.median(hybrid_matrix[top_indices].toarray(), axis=0),
+        hybrid_matrix[top_indices].max(axis=0),
+        hybrid_matrix[candidate_indices],
     ).ravel()
     print(len(tracks_descs), len(top_indices), len(candidate_indices), len(sims), len(tracks_descs))
     return sorted(zip(tracks_descs, sims, ranks), key=lambda p: (p[1], p[2]), reverse=True)
