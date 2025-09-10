@@ -48,10 +48,10 @@ def sp_client() -> Any:
     )
 
 
-def order_filter_tags(tag_list: List, prev_list: List | None = None, token: str = "name") -> List:
+def order_filter_tags(tag_list: List, prev_list: List | None = None, token: str = "name", limit: int = 7) -> List:
     """Order and filter music tags."""
     tags = list(set(sorted([(t[token], t["count"]) for t in tag_list], key=lambda p: p[1], reverse=True)))
-    tags = [t[0] for t in tags]
+    tags = [t[0] for t in tags[: min(len(tags), limit)]]
     if prev_list is not None:
         tags = prev_list + tags
     tags = [t for t in tags if len(t)]
