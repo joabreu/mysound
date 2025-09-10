@@ -228,6 +228,8 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
                     limit=1,
                 )
         else:
+            if f["name"] in user_tracks:
+                continue
             get_artist_top_tracks(user_tracks, artist_name=f["name"], track_name=None, limit=ARTIST_SIMILAR_RECS)
 
     return user_tracks
