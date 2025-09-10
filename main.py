@@ -186,7 +186,7 @@ def get_artist_top_tracks(tracks: dict, artist_name: str, track_name: str | None
             return
 
         get_artist_tracks(tracks, artist, track_name, limit)
-    elif limit > 1:
+    elif limit >= 1:
         artist = tracks[artist_name]
         result = musicbrainz.search_artists(tag=artist["genres"], limit=limit, offset=0)
         for r in result["artist-list"]:
