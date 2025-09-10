@@ -205,12 +205,30 @@ def track_description(mb_genres: List | None) -> str:
     return ", ".join(mb_genres) if mb_genres is not None else ""
 
 
-def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> List:
+def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
     """Get current user recently played tracks and top tracks."""
     top = [t["track"] for t in sp.current_user_recently_played(limit=limit_r)["items"]]
-    top.extend(sp.current_user_top_tracks(limit=limit_t, time_range="short_term")["items"])
+    top.extend(sp.current_user_top_tracks(limit=limit_r, time_range="short_term")["items"])
     top.extend(sp.current_user_top_tracks(limit=limit_t, time_range="long_term")["items"])
-    return top
+    top.extend(sp.current_user_top_artists(limit=limit_t, time_range="long_term")["items"])
+
+    user_tracks: dict = {}
+    for f in tqdm(top):
+        if "artists" in f:
+            track = f["name"]
+            for artist in f["artists"]:
+                if artist["name"] in user_tracks:
+                    continue
+                get_artist_top_tracks(
+                    user_tracks,
+                    artist_name=artist["name"],
+                    track_name=track,
+                    limit=1,
+                )
+        else:
+            get_artist_top_tracks(user_tracks, artist_name=f["name"], track_name=None, limit=ARTIST_SIMILAR_RECS)
+
+    return user_tracks
 
 
 def embed_tags(tags: List, lookup: dict, dim: int) -> np.array:
@@ -277,15 +295,7 @@ def create_playlist(recommended: List) -> None:
 def recommend() -> None:
     """Generate recommendations for user."""
     tracks = {}
-
-    user_tracks: dict = {}
-    top_tracks_user = get_top_tracks(limit_r=USER_RECENT, limit_t=USER_GLOBAL)
-    for f in tqdm(top_tracks_user):
-        track = f["name"]
-        for artist in f["artists"]:
-            get_artist_top_tracks(user_tracks, artist_name=artist["name"], track_name=track, limit=1)
-            tracks[artist["name"]] = [track]
-
+    user_tracks = get_top_tracks(limit_r=USER_RECENT, limit_t=USER_GLOBAL)
     latest_tracks = user_tracks.copy()
     for k in tqdm(user_tracks.keys()):
         get_artist_top_tracks(latest_tracks, artist_name=k, limit=ARTIST_SIMILAR)
