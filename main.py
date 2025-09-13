@@ -210,8 +210,8 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
     """Get current user recently played tracks and top tracks."""
     top = [t["track"] for t in sp.current_user_recently_played(limit=limit_r)["items"]]
     top.extend(sp.current_user_top_tracks(limit=limit_r, time_range="short_term")["items"])
+    top.extend(sp.current_user_top_tracks(limit=limit_t, time_range="medium_term")["items"])
     top.extend(sp.current_user_top_tracks(limit=limit_t, time_range="long_term")["items"])
-    top.extend(sp.current_user_top_artists(limit=limit_t, time_range="long_term")["items"])
 
     user_tracks: dict = {}
     for f in tqdm(top):
