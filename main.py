@@ -31,7 +31,7 @@ load_dotenv()
 SCOPES = ["user-top-read", "playlist-modify-private", "user-read-recently-played", "playlist-modify-public"]
 
 musicbrainz.set_useragent("mysound", "0.1", "mysound@domain.com")
-musicbrainz.set_rate_limit(limit_or_interval=15.0, new_requests=10)
+musicbrainz.set_rate_limit(limit_or_interval=15.0, new_requests=9)
 
 
 def sp_client() -> Any:
