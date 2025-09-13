@@ -235,7 +235,7 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
 
 def embed_tags(tags: List, lookup: dict, dim: int) -> np.array:
     """Compute vectors for each tag."""
-    vectors = [lookup[t] if t in lookup else np.zeros(dim) for t in tags]
+    vectors = [lookup[t] for t in tags if t in lookup]
     return np.mean(vectors, axis=0) if vectors else np.zeros(dim)
 
 
