@@ -88,7 +88,7 @@ def deezer_track_description_from_name(artist_name: str, track_name: str) -> Lis
     ]
 
 
-@musicbrainz._rate_limit  # noqa: W0212 # pylint:disable=protected-access
+@musicbrainz._rate_limit  # pylint:disable=protected-access
 def find_sptrack(track: str, artist: str) -> Tuple[str | None, str | None, float]:
     """Return a track Spotify given track name and artist name."""
     query = "artist:" + artist + " track:" + track
@@ -102,7 +102,7 @@ def find_sptrack(track: str, artist: str) -> Tuple[str | None, str | None, float
     return None, None, 0.0
 
 
-@musicbrainz._rate_limit  # noqa: W0212 # pylint:disable=protected-access
+@musicbrainz._rate_limit  # pylint:disable=protected-access
 def find_sptags(artist_id: str) -> List:
     """Return a genre for Spotify artist given artist ID."""
     a = sp.artist(artist_id)
