@@ -249,7 +249,13 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
             cand_descs.append(track_description(t["tags"]))
             tracks_descs.append((a, t["name"], t["tags"], t["uri"], t["rank"]))
 
-    top_indices = [i for i, (a, _, _, _, _) in enumerate(tracks_descs) if a in top_tracks]
+    top_indices = [
+        i
+        for i, (a, t, _, _, _) in enumerate(tracks_descs)
+        for artist, artist_data in top_tracks.items()
+        for track in artist_data["tracks"]
+        if a == artist and t == track["name"]
+    ]
     candidate_indices = [i for i in range(len(tracks_descs)) if i not in top_indices]
     tracks_descs = [t for i, t in enumerate(tracks_descs) if i in candidate_indices]
     ranks = [r for i, (_, _, _, _, r) in enumerate(tracks_descs) if i in candidate_indices]
