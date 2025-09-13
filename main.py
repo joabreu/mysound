@@ -19,10 +19,10 @@ from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
 
 USER_RECENT = 10
-USER_GLOBAL = 50
+USER_GLOBAL = 30
 ARTIST_SIMILAR = 5
 ARTIST_SIMILAR_RECS = 15
-SIM_THRESHOLD = 0.60
+SIM_THRESHOLD = 0.10
 MAX_NEW = 50
 
 load_dotenv()
