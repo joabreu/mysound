@@ -12,10 +12,9 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from fuzzywuzzy import fuzz
 from musicbrainzngs import musicbrainz
-from scipy.sparse import csr_matrix, hstack
+from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import normalize
 from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
 
@@ -287,15 +286,12 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
                 for track in artist["tracks"]
             ]
         )
-    )
+    ).toarray()
 
-    X = normalize(X, norm="l2")
-    track_embeddings = normalize(track_embeddings, norm="l2")
-    hybrid_matrix = hstack([X, track_embeddings]).tocsr()
+    X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1)])
     sims = cosine_similarity(
-        # np.median(hybrid_matrix[top_indices].toarray(), axis=0),
-        hybrid_matrix[top_indices].max(axis=0),
-        hybrid_matrix[candidate_indices],
+        np.max(X[top_indices], axis=0).reshape(1, -1),
+        X[candidate_indices],
     ).ravel()
     print(len(tracks_descs), len(top_indices), len(candidate_indices), len(sims), len(tracks_descs))
     return sorted(zip(tracks_descs, sims, ranks), key=lambda p: (p[1], p[2]), reverse=True)
