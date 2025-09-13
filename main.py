@@ -153,7 +153,7 @@ def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None,
     if track_name is None:
         releases = musicbrainz.browse_recordings(artist=artist["id"], includes=["tags"], limit=limit)
     else:
-        releases = musicbrainz.search_recordings(artist=artist["name"], recording=track_name, limit=limit)
+        releases = musicbrainz.search_recordings(artist=artist["name"], recording=track_name, limit=1)
 
     releases_tags = order_filter_tags(artist.get("tag-list", []))
     releases_tags = releases_tags + order_filter_tags(releases.get("tag-list", []))
