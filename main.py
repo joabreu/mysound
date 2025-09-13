@@ -175,30 +175,39 @@ def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None,
     print(artist["name"], tracks[artist["name"]]["genres"])
 
 
+def get_similar_artist_tracks(tracks: dict, artists: dict) -> None:
+    """Get similar artist tracks."""
+    for r in artists["artist-list"]:
+        similar_artist = musicbrainz.search_artists(artist=r["name"], limit=1, strict=True)
+        for a in similar_artist["artist-list"]:
+            try:
+                get_artist_tracks(tracks, a, None, ARTIST_SIMILAR_RECS)
+            except musicbrainz.NetworkError:
+                continue
+
+
 def get_artist_top_tracks(tracks: dict, artist_name: str, track_name: str | None = None, limit: int = 10) -> None:
     """Get top and similar tracks for artist."""
     if artist_name not in tracks:
-        result = musicbrainz.search_artists(artist=artist_name, limit=1, strict=True)
-        if len(result["artist-list"]) > 0:
-            artist = result["artist-list"][0]
-        else:
-            return
+        try:
+            result = musicbrainz.search_artists(artist=artist_name, limit=1, strict=True)
+            if len(result["artist-list"]) > 0:
+                artist = result["artist-list"][0]
+            else:
+                return
 
-        get_artist_tracks(tracks, artist, track_name, limit=1)
+            get_artist_tracks(tracks, artist, track_name, limit=limit)
+        except musicbrainz.NetworkError:
+            return
     elif limit >= 1:
         artist = tracks[artist_name]
         if len(artist["genres"]) == 0:
             return
-        result = musicbrainz.search_artists(tag=artist["genres"], limit=limit, offset=0)
-        for r in result["artist-list"]:
-            if r["name"] in tracks:
-                continue
-            try:
-                similar_artist = musicbrainz.search_artists(artist=r["name"], limit=1, strict=True)
-                for a in similar_artist["artist-list"]:
-                    get_artist_tracks(tracks, a, None, ARTIST_SIMILAR_RECS)
-            except musicbrainz.MusicBrainzError:
-                continue
+        try:
+            artists = musicbrainz.search_artists(tag=artist["genres"], limit=limit, offset=0)
+            get_similar_artist_tracks(tracks, artists)
+        except musicbrainz.NetworkError:
+            return
 
 
 def track_description(mb_genres: List | None) -> str:
