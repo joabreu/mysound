@@ -1,6 +1,7 @@
 """Main module for mysound recommender."""
 
 import os
+from copy import deepcopy
 from datetime import datetime
 from typing import Any, List, Tuple
 
@@ -300,7 +301,7 @@ def recommend() -> None:
     """Generate recommendations for user."""
     tracks = {}
     user_tracks = get_top_tracks(limit_r=USER_RECENT, limit_t=USER_GLOBAL)
-    latest_tracks = user_tracks.copy()
+    latest_tracks = deepcopy(user_tracks)
     for k in tqdm(user_tracks.keys()):
         get_artist_top_tracks(latest_tracks, artist_name=k, limit=ARTIST_SIMILAR)
 
