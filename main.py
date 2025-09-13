@@ -76,19 +76,14 @@ def deezer_track_description_from_name(artist_name: str, track_name: str) -> Lis
 
     # Try to fetch genre from album/artist (Deezer doesn’t give track-level genres)
     genre = ""
-    nb_fan = 0
     track = results[0]
     artist_id = track.get("artist", {}).get("id")
-    rank = int(track.get("rank", 0))
     if artist_id:
         artist_info = requests.get(f"https://api.deezer.com/artist/{artist_id}")
         if artist_info.status_code == 200:
             genre = artist_info.json().get("genre_id", "")
-            nb_fan = int(artist_info.json().get("id", 0))
 
     return [
-        f"fans_{int(np.log1p(nb_fan))}",
-        f"rank_{int(np.log1p(rank))}",
         str(genre),
     ]
 
