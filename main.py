@@ -1,7 +1,6 @@
 """Main module for mysound recommender."""
 
 import os
-from copy import deepcopy
 from datetime import datetime
 from typing import Any, List, Tuple
 
@@ -149,15 +148,15 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
 
 def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None, limit: int = 10) -> None:
     """Get single artist tracks."""
-    releases = musicbrainz.browse_recordings(artist=artist["id"], includes=["tags"], limit=limit)
     releases_tags = order_filter_tags(artist.get("tag-list", []))
-    releases_tags = releases_tags + order_filter_tags(releases.get("tag-list", []))
 
     if track_name is not None:
         track_releases = musicbrainz.search_recordings(artist=artist["name"], recording=track_name, limit=1)
-        releases = {"release-list": [track_releases, releases]}
         releases_tags = releases_tags + order_filter_tags(track_releases.get("tag-list", []))
+        releases = {"release-list": [track_releases]}
     else:
+        releases = musicbrainz.browse_recordings(artist=artist["id"], includes=["tags"], limit=limit)
+        releases_tags = releases_tags + order_filter_tags(releases.get("tag-list", []))
         releases = {"release-list": [releases]}
 
     tracks[artist["name"]] = {
@@ -190,26 +189,18 @@ def get_similar_artist_tracks(tracks: dict, artists: dict) -> None:
 
 def get_artist_top_tracks(tracks: dict, artist_name: str, track_name: str | None = None, limit: int = 10) -> None:
     """Get top and similar tracks for artist."""
-    if artist_name not in tracks:
-        try:
-            result = musicbrainz.search_artists(artist=artist_name, limit=1, strict=True)
-            if len(result["artist-list"]) > 0:
-                artist = result["artist-list"][0]
-            else:
-                return
+    assert artist_name not in tracks
 
-            get_artist_tracks(tracks, artist, track_name, limit=limit)
-        except musicbrainz.NetworkError:
+    try:
+        result = musicbrainz.search_artists(artist=artist_name, limit=1, strict=True)
+        if len(result["artist-list"]) > 0:
+            artist = result["artist-list"][0]
+        else:
             return
-    elif limit >= 1:
-        artist = tracks[artist_name]
-        if len(artist["genres"]) == 0:
-            return
-        try:
-            artists = musicbrainz.search_artists(tag=artist["genres"], limit=limit, offset=0)
-            get_similar_artist_tracks(tracks, artists)
-        except musicbrainz.NetworkError:
-            return
+
+        get_artist_tracks(tracks, artist, track_name, limit=limit)
+    except musicbrainz.NetworkError:
+        return
 
 
 def track_description(mb_genres: List | None) -> str:
@@ -253,12 +244,22 @@ def embed_tags(tags: List, lookup: dict, dim: int) -> np.array:
 
 def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     """Generate recommendations using Tfid vectorizer."""
+    embedding_dim = len(next(iter(mwe_lookup.values())))
+
     cand_descs = []
     tracks_descs = []
+    embed_descs = []
+
+    for a in tqdm(top_tracks.keys()):
+        for t in top_tracks[a]["tracks"]:
+            cand_descs.append(track_description(t["tags"]))
+            tracks_descs.append((a, t["name"], t["tags"], t["uri"], t["rank"]))
+            embed_descs.append(embed_tags(t["tags"], mwe_lookup, embedding_dim))
     for a in tqdm(latest_tracks.keys()):
         for t in latest_tracks[a]["tracks"]:
             cand_descs.append(track_description(t["tags"]))
             tracks_descs.append((a, t["name"], t["tags"], t["uri"], t["rank"]))
+            embed_descs.append(embed_tags(t["tags"], mwe_lookup, embedding_dim))
 
     top_indices = [
         i
@@ -280,16 +281,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     )
 
     X = vectorizer.fit_transform(cand_descs)
-    embedding_dim = len(next(iter(mwe_lookup.values())))
-    track_embeddings = csr_matrix(
-        np.array(
-            [
-                embed_tags(track["tags"], mwe_lookup, embedding_dim)
-                for artist in latest_tracks.values()
-                for track in artist["tracks"]
-            ]
-        )
-    ).toarray()
+    track_embeddings = csr_matrix(np.array(embed_descs)).toarray()
 
     X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1)])
     sims = cosine_similarity(
@@ -315,9 +307,16 @@ def recommend() -> None:
     """Generate recommendations for user."""
     tracks = {}
     user_tracks = get_top_tracks(limit_r=USER_RECENT, limit_t=USER_GLOBAL)
-    latest_tracks = deepcopy(user_tracks)
+    latest_tracks: dict = {}
     for k in tqdm(user_tracks.keys()):
-        get_artist_top_tracks(latest_tracks, artist_name=k, limit=ARTIST_SIMILAR)
+        artist = user_tracks[k]
+        if len(artist["genres"]) == 0:
+            continue
+        try:
+            artists = musicbrainz.search_artists(tag=artist["genres"], limit=ARTIST_SIMILAR, offset=0)
+            get_similar_artist_tracks(latest_tracks, artists)
+        except musicbrainz.NetworkError:
+            continue
 
     ranked = generate_recommends(user_tracks, latest_tracks)
 
