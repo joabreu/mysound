@@ -277,7 +277,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
         use_idf=False,
-        min_df=0.001,
+        min_df=0.02,
     )
 
     X = vectorizer.fit_transform(cand_descs)
@@ -285,7 +285,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
 
     X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1)])
     sims = cosine_similarity(
-        np.max(X[top_indices], axis=0).reshape(1, -1),
+        np.mean(X[top_indices], axis=0).reshape(1, -1),
         X[candidate_indices],
     ).ravel()
     print(len(tracks_descs), len(top_indices), len(candidate_indices), len(sims), len(tracks_descs))
