@@ -149,15 +149,16 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
 
 def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None, limit: int = 10) -> None:
     """Get single artist tracks."""
-    if track_name is None:
-        releases = musicbrainz.browse_recordings(artist=artist["id"], includes=["tags"], limit=limit)
-    else:
-        releases = musicbrainz.search_recordings(artist=artist["name"], recording=track_name, limit=1)
-
+    releases = musicbrainz.browse_recordings(artist=artist["id"], includes=["tags"], limit=limit)
     releases_tags = order_filter_tags(artist.get("tag-list", []))
     releases_tags = releases_tags + order_filter_tags(releases.get("tag-list", []))
 
-    releases = {"release-list": [releases]}
+    if track_name is not None:
+        track_releases = musicbrainz.search_recordings(artist=artist["name"], recording=track_name, limit=1)
+        releases = {"release-list": [track_releases, releases]}
+        releases_tags = releases_tags + order_filter_tags(track_releases.get("tag-list", []))
+    else:
+        releases = {"release-list": [releases]}
 
     tracks[artist["name"]] = {
         "id": artist["id"],
@@ -177,6 +178,8 @@ def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None,
 def get_similar_artist_tracks(tracks: dict, artists: dict) -> None:
     """Get similar artist tracks."""
     for r in artists["artist-list"]:
+        if r["name"] in tracks:
+            continue
         similar_artist = musicbrainz.search_artists(artist=r["name"], limit=1, strict=True)
         for a in similar_artist["artist-list"]:
             try:
@@ -232,7 +235,7 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
                     user_tracks,
                     artist_name=artist["name"],
                     track_name=track,
-                    limit=1,
+                    limit=ARTIST_SIMILAR_RECS,
                 )
         else:
             if f["name"] in user_tracks:
