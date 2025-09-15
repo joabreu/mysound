@@ -1,5 +1,6 @@
 """Main module for mysound recommender."""
 
+import json
 import os
 from datetime import datetime
 from random import shuffle
@@ -27,6 +28,8 @@ MAX_NEW = 50
 
 load_dotenv()
 
+CACHE_FILE = ".cache.json"
+
 SCOPES = ["user-top-read", "playlist-modify-private", "user-read-recently-played", "playlist-modify-public"]
 
 musicbrainz.set_useragent("mysound", "0.1", "mysound@domain.com")
@@ -46,6 +49,23 @@ def sp_client() -> Any:
         retries=10,
         backoff_factor=0.3,
     )
+
+
+def load_cache() -> dict:
+    """Load already found artists and tracks."""
+    if os.path.exists(CACHE_FILE):
+        with open(CACHE_FILE, encoding="utf-8") as f:
+            cache = json.load(f)
+    else:
+        cache = {}
+
+    return cache
+
+
+def save_cache(cache: dict) -> None:
+    """Save already found artists and tracks for future usage."""
+    with open(CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(cache, f)
 
 
 def order_filter_tags(tag_list: List, prev_list: List | None = None, token: str = "name", limit: int = 0) -> List:
@@ -179,15 +199,18 @@ def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None,
 
 def get_similar_artist_tracks(tracks: dict, artists: dict) -> None:
     """Get similar artist tracks."""
+    cache = load_cache()
+
     for r in artists["artist-list"]:
         if r["name"] in tracks:
             continue
-        similar_artist = musicbrainz.search_artists(artist=r["name"], limit=1, strict=True)
-        for a in similar_artist["artist-list"]:
-            try:
-                get_artist_tracks(tracks, a, None, ARTIST_SIMILAR_RECS)
-            except musicbrainz.NetworkError:
-                continue
+        if r["name"] in cache:
+            tracks[r["name"]] = cache[r["name"]]
+            continue
+        get_artist_tracks(tracks, r, None, ARTIST_SIMILAR_RECS)
+        cache[r["name"]] = tracks[r["name"]]
+
+    save_cache(cache)
 
 
 def get_artist_top_tracks(tracks: dict, artist_name: str, track_name: str | None = None, limit: int = 10) -> None:
