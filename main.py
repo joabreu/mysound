@@ -58,7 +58,7 @@ def order_filter_tags(tag_list: List, prev_list: List | None = None, token: str 
     if prev_list is not None:
         tags = prev_list + tags
     tags = [t for t in tags if len(t)]
-    return tags
+    return list(set(tags))
 
 
 def deezer_track_description_from_name(artist_name: str, track_name: str) -> List:
