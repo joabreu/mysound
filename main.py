@@ -169,7 +169,7 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
     return tracks
 
 
-def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None, limit: int = 10) -> None:
+def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None, limit: int | None = 10) -> None:
     """Get single artist tracks."""
     releases_tags = order_filter_tags(artist.get("tag-list", []))
 
@@ -213,7 +213,9 @@ def get_similar_artist_tracks(tracks: dict, artists: dict) -> None:
     save_cache(cache)
 
 
-def get_artist_top_tracks(tracks: dict, artist_name: str, track_name: str | None = None, limit: int = 10) -> None:
+def get_artist_top_tracks(
+    tracks: dict, artist_name: str, track_name: str | None = None, limit: int | None = 10
+) -> None:
     """Get top and similar tracks for artist."""
     assert artist_name not in tracks
 
