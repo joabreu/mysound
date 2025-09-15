@@ -19,11 +19,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
 
-USER_RECENT = 15
-USER_GLOBAL = 30
+USER_RECENT = 3
+USER_GLOBAL = 7
 ARTIST_SIMILAR = 5
-ARTIST_SIMILAR_RECS = 5
-SIM_THRESHOLD = 0.10
+ARTIST_SIMILAR_RECS = None  # To fetch all tracks
+SIM_THRESHOLD = 0.30
 MAX_NEW = 50
 
 load_dotenv()
