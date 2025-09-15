@@ -2,6 +2,7 @@
 
 import os
 from datetime import datetime
+from random import shuffle
 from typing import Any, List, Tuple
 
 import numpy as np
@@ -256,6 +257,9 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
             tracks_descs.append((a, t["name"], t["tags"], t["uri"], t["rank"]))
             embed_descs.append(embed_tags(t["tags"], mwe_lookup, embedding_dim))
     for a in tqdm(latest_tracks.keys()):
+        # Shuffle artist tracks
+        shuffle(latest_tracks[a]["tracks"])
+
         for t in latest_tracks[a]["tracks"]:
             cand_descs.append(track_description(t["tags"]))
             tracks_descs.append((a, t["name"], t["tags"], t["uri"], t["rank"]))
