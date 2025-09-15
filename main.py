@@ -113,6 +113,7 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
     """Add artist genres and tracks."""
     tracks = []
     sp_tags_artist = None
+    deezer_tags_artist = None
     for r in releases["release-list"]:
         if "id" in r:
             t = musicbrainz.browse_recordings(release=r["id"], includes=["tags"])
@@ -122,7 +123,10 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
         for t_1 in t["recording-list"]:
             tags: List = []
             if prev_tags is not None:
-                tags = tags + prev_tags
+                tags = prev_tags + tags
+            if deezer_tags_artist is None:
+                deezer_tags_artist = deezer_track_description_from_name(artist_name, t_1["title"])
+            tags = deezer_tags_artist + tags
 
             try:
                 aid, uri, sp_rank = find_sptrack(track=t_1["title"], artist=artist_name)
@@ -130,11 +134,9 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
                     sp_tags_artist = find_sptags(artist_id=aid)
             except spotipy.exceptions.SpotifyException:
                 uri, sp_rank = None, 0.0
-                sp_tags_artist = None
 
-            tags = tags + deezer_track_description_from_name(artist_name, t_1["title"])
             if sp_tags_artist is not None:
-                tags = tags + sp_tags_artist
+                tags = sp_tags_artist + tags
             tracks.append(
                 {
                     "name": t_1["title"],
