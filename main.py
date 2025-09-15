@@ -330,11 +330,10 @@ def recommend() -> None:
         if artist in tracks:
             continue
 
-        if score >= SIM_THRESHOLD:
+        if score >= SIM_THRESHOLD and uri is not None:
+            print(f"{i:2d}. {artist} — {track}  (rank={rank:.2f}, sim={score:.2f}, d='{d}')")
             tracks[artist] = [track]
-            if uri is not None:
-                print(f"{i:2d}. {artist} — {track}  (rank={rank:.2f}, sim={score:.2f}, d='{d}')")
-                recommended.append(uri)
+            recommended.append(uri)
         if len(recommended) >= MAX_NEW:
             break
 
