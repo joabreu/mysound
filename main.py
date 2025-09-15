@@ -205,11 +205,17 @@ def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None,
         releases_tags = releases_tags + order_filter_tags(releases.get("tag-list", []))
         releases = {"release-list": [releases]}
 
+    artist_tracks = add_artist_genres_and_tracks(artist["name"], releases, prev_tags=releases_tags)
+    if artist["name"] in tracks:
+        a = tracks[artist["name"]]
+        releases_tags.extend(a["genres"])
+        artist_tracks.extend(a["tracks"])
+
     tracks[artist["name"]] = {
         "id": artist["id"],
         "releases": releases,
         "genres": releases_tags,
-        "tracks": add_artist_genres_and_tracks(artist["name"], releases, prev_tags=releases_tags),
+        "tracks": artist_tracks,
     }
 
     # Update with track info
@@ -240,8 +246,6 @@ def get_artist_top_tracks(
     tracks: dict, artist_name: str, track_name: str | None = None, limit: int | None = 10
 ) -> None:
     """Get top and similar tracks for artist."""
-    assert artist_name not in tracks
-
     try:
         result = musicbrainz.search_artists(artist=artist_name, limit=1, strict=True)
         if len(result["artist-list"]) > 0:
@@ -271,8 +275,6 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
         if "artists" in f:
             track = f["name"]
             for artist in f["artists"]:
-                if artist["name"] in user_tracks:
-                    continue
                 get_artist_top_tracks(
                     user_tracks,
                     artist_name=artist["name"],
@@ -369,6 +371,7 @@ def recommend() -> None:
             continue
         try:
             artists = musicbrainz.search_artists(tag=artist["genres"], limit=ARTIST_SIMILAR, offset=0)
+            artists["artist-list"].append({"id": artist["id"], "name": k})
             get_similar_artist_tracks(latest_tracks, artists)
         except musicbrainz.NetworkError:
             continue
