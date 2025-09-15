@@ -31,6 +31,7 @@ load_dotenv()
 CACHE_FILE = ".cache.json"
 
 SCOPES = ["user-top-read", "playlist-modify-private", "user-read-recently-played", "playlist-modify-public"]
+PLAYLIST_PREFIX = "Recommended by MySound"
 
 musicbrainz.set_useragent("mysound", "0.1", "mysound@domain.com")
 musicbrainz.set_rate_limit(limit_or_interval=15.0, new_requests=9)
@@ -127,6 +128,28 @@ def find_sptags(artist_id: str) -> List:
     """Return a genre for Spotify artist given artist ID."""
     a = sp.artist(artist_id)
     return a["genres"] if a is not None else [""]
+
+
+@musicbrainz._rate_limit  # pylint:disable=protected-access
+def get_blacklist() -> List:
+    """Return all playlists owned by the user that are from mysound."""
+    playlists = []
+    results = sp.current_user_playlists()
+    playlists.extend(results["items"])
+    while results["next"]:
+        results = sp.next(results)
+        playlists.extend(results["items"])
+
+    playlists = [p for p in playlists if p["name"].startswith(PLAYLIST_PREFIX)]
+    blacklist = []
+    for p in playlists:
+        results = sp.playlist_items(p["id"], fields="items.track.uri,next", additional_types=["track"])
+        blacklist.extend([item["track"]["uri"] for item in results["items"] if item["track"]])
+        while results["next"]:
+            results = sp.next(results)
+            blacklist.extend([item["track"]["uri"] for item in results["items"] if item["track"]])
+
+    return blacklist
 
 
 def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: List | None = None) -> List:
@@ -328,7 +351,7 @@ def create_playlist(recommended: List) -> None:
     user_name = sp.current_user()["uri"].split(":")[2]
     if len(recommended):
         playlist_date = datetime.now().strftime("%b/%-d")
-        playlist_name = f"Recommended by MySound ({playlist_date})"
+        playlist_name = f"{PLAYLIST_PREFIX} ({playlist_date})"
         playlist_id = sp.user_playlist_create(user=user_name, name=playlist_name)["id"]
         for uri in recommended:
             sp.user_playlist_add_tracks(user=user_name, playlist_id=playlist_id, tracks=[uri])
@@ -337,6 +360,7 @@ def create_playlist(recommended: List) -> None:
 def recommend() -> None:
     """Generate recommendations for user."""
     tracks = {}
+    blacklist = get_blacklist()
     user_tracks = get_top_tracks(limit_r=USER_RECENT, limit_t=USER_GLOBAL)
     latest_tracks: dict = {}
     for k in tqdm(user_tracks.keys()):
@@ -357,7 +381,7 @@ def recommend() -> None:
         if artist in tracks:
             continue
 
-        if score >= SIM_THRESHOLD and uri is not None:
+        if score >= SIM_THRESHOLD and uri is not None and uri not in blacklist:
             print(f"{i:2d}. {artist} — {track}  (rank={rank:.2f}, sim={score:.2f}, d='{d}')")
             tracks[artist] = [track]
             recommended.append(uri)
