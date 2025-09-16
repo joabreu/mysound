@@ -20,8 +20,8 @@ from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
 
 USER_RECENT = 7
-USER_GLOBAL = 3
-ARTIST_SIMILAR = 5
+USER_GLOBAL = 5
+ARTIST_SIMILAR = 7
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
 SIM_THRESHOLD = 0.30
 MAX_NEW = 50
