@@ -1,6 +1,6 @@
 [project]
 name = "mysound"
-version = "1.0.0"
+version = "1.1.0"
 description = "Spotify recommender for you"
 readme = "README.md"
 requires-python = ">=3.13"
