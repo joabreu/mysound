@@ -19,8 +19,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
 
-USER_RECENT = 7
-USER_GLOBAL = 5
+USER_RECENT = 5
+USER_GLOBAL = 7
 ARTIST_SIMILAR = 7
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
 SIM_THRESHOLD = 0.15
@@ -341,7 +341,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
 
     X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1)])
     sims = cosine_similarity(
-        np.mean(X[top_indices], axis=0).reshape(1, -1),
+        np.max(X[top_indices], axis=0).reshape(1, -1),
         X[candidate_indices],
     ).ravel()
     print(len(tracks_descs), len(top_indices), len(candidate_indices), len(sims), len(tracks_descs))
