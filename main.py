@@ -332,14 +332,14 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         stop_words=None,
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
-        use_idf=False,
+        use_idf=True,
         min_df=0.03,
     )
 
     X = vectorizer.fit_transform(cand_descs)
     track_embeddings = csr_matrix(np.array(embed_descs)).toarray()
 
-    X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1)])
+    X = np.hstack([X.toarray(), track_embeddings.max(axis=1).reshape(-1, 1)])
     sims = cosine_similarity(
         np.max(X[top_indices], axis=0).reshape(1, -1),
         X[candidate_indices],
@@ -377,6 +377,7 @@ def recommend() -> None:
             continue
 
     ranked = generate_recommends(user_tracks, latest_tracks)
+    shuffle(ranked)
 
     print("Top recommendations:")
     recommended = []
