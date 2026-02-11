@@ -21,9 +21,9 @@ from tqdm import tqdm
 
 USER_RECENT = 3
 USER_GLOBAL = 10
-ARTIST_SIMILAR = 10
+ARTIST_SIMILAR = 5
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.10
+SIM_THRESHOLD = 0.30
 MAX_NEW = 50
 
 load_dotenv()
@@ -231,8 +231,8 @@ def get_similar_artist_tracks(tracks: dict, artists: dict) -> None:
     cache = load_cache()
 
     for r in artists["artist-list"]:
-        if r["name"] in tracks:
-            continue
+        #if r["name"] in tracks:
+        #    continue
         if r["name"] in cache:
             tracks[r["name"]] = cache[r["name"]]
             continue
@@ -332,14 +332,14 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         stop_words=None,
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
-        use_idf=True,
-        min_df=0.03,
+        use_idf=False,
+        min_df=0.01,
     )
 
     X = vectorizer.fit_transform(cand_descs)
     track_embeddings = csr_matrix(np.array(embed_descs)).toarray()
 
-    X = np.hstack([X.toarray(), track_embeddings.max(axis=1).reshape(-1, 1)])
+    X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1), track_embeddings.std(axis=1).reshape(-1, 1)])
     sims = cosine_similarity(
         np.max(X[top_indices], axis=0).reshape(1, -1),
         X[candidate_indices],
