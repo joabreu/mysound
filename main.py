@@ -21,7 +21,7 @@ from tqdm import tqdm
 
 USER_RECENT = 3
 USER_GLOBAL = 10
-ARTIST_SIMILAR = 5
+ARTIST_SIMILAR = 10
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
 SIM_THRESHOLD = 0.10
 MAX_NEW = 50
@@ -370,7 +370,7 @@ def recommend() -> None:
         if len(artist["genres"]) == 0:
             continue
         try:
-            artists = musicbrainz.search_artists(tag=artist["genres"], limit=ARTIST_SIMILAR, offset=0)
+            artists = musicbrainz.search_artists(tag=artist["genres"], limit=ARTIST_SIMILAR, offset=None)
             artists["artist-list"].append({"id": artist["id"], "name": k})
             get_similar_artist_tracks(latest_tracks, artists)
         except musicbrainz.NetworkError:
@@ -381,7 +381,7 @@ def recommend() -> None:
     print("Top recommendations:")
     recommended = []
     for i, ((artist, track, d, uri, rank), score, _) in enumerate(ranked, start=0):
-        if artist in tracks:
+        if artist in tracks and track in tracks[artist]:
             continue
 
         if score >= SIM_THRESHOLD and uri is not None and uri not in blacklist:
