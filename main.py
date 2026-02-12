@@ -15,6 +15,7 @@ from fuzzywuzzy import fuzz
 from musicbrainzngs import musicbrainz
 from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
@@ -292,7 +293,12 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
 def embed_tags(tags: List, lookup: dict, dim: int) -> np.array:
     """Compute vectors for each tag."""
     vectors = [lookup[t] for t in tags if t in lookup]
-    return np.mean(vectors, axis=0) if vectors else np.zeros(dim)
+    if scaled:
+        s = MinMaxScaler()
+        scaled = s.fit_transform(vectors)
+        return np.mean(scaled, axis=0)
+    else:
+        return np.zeros(dim)
 
 
 def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
