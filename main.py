@@ -338,7 +338,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         stop_words=None,
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
-        use_idf=False,
+        use_idf=True,
         min_df=0.01,
     )
 
