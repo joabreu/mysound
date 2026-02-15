@@ -1,7 +1,9 @@
 """Main module for mysound recommender."""
 
+import functools
 import json
 import os
+import time
 from datetime import datetime
 from random import shuffle
 from typing import Any, List, Tuple
@@ -15,7 +17,6 @@ from fuzzywuzzy import fuzz
 from musicbrainzngs import musicbrainz
 from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
@@ -23,8 +24,8 @@ from tqdm import tqdm
 USER_RECENT = 3
 USER_GLOBAL = 10
 ARTIST_SIMILAR = 5
-ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.20
+ARTIST_SIMILAR_RECS = 10  # None # To fetch all tracks
+SIM_THRESHOLD = 0.25
 MAX_NEW = 50
 
 load_dotenv()
@@ -36,6 +37,34 @@ PLAYLIST_PREFIX = "Recommended by MySound"
 
 musicbrainz.set_useragent("mysound", "0.1", "mysound@domain.com")
 musicbrainz.set_rate_limit(limit_or_interval=15.0, new_requests=9)
+
+
+def retry(
+    exceptions: Tuple,
+    max_attempts: int = 10,
+    initial_delay: float = 1.0,
+    backoff_factor: float = 2.0,
+) -> Any:
+    """Retry decorator for a function."""
+
+    def decorator(func: Any) -> Any:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            delay = initial_delay
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions:
+                    if attempt == max_attempts:
+                        print("ERROR: max attempts reached")
+                        return None
+                    time.sleep(delay)
+                    delay *= backoff_factor
+            return None
+
+        return wrapper
+
+    return decorator
 
 
 def sp_client() -> Any:
@@ -193,7 +222,12 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
     return tracks
 
 
-def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None, limit: int | None = 10) -> None:
+@retry(
+    exceptions=(musicbrainz.NetworkError,),
+)
+def get_artist_tracks(
+    tracks: dict, artist: dict, track_name: str | None = None, limit: int | None = 10, w: int = 1
+) -> None:
     """Get single artist tracks."""
     releases_tags = order_filter_tags(artist.get("tag-list", []))
 
@@ -217,6 +251,7 @@ def get_artist_tracks(tracks: dict, artist: dict, track_name: str | None = None,
         "releases": releases,
         "genres": releases_tags,
         "tracks": artist_tracks,
+        "w": w,
     }
 
     # Update with track info
@@ -232,31 +267,32 @@ def get_similar_artist_tracks(tracks: dict, artists: dict) -> None:
     cache = load_cache()
 
     for r in artists["artist-list"]:
-        #if r["name"] in tracks:
-        #    continue
+        if r["name"] in tracks:
+            continue
         if r["name"] in cache:
             tracks[r["name"]] = cache[r["name"]]
+            tracks[r["name"]]["w"] = 1
             continue
-        get_artist_tracks(tracks, r, None, ARTIST_SIMILAR_RECS)
+        get_artist_tracks(tracks, r, None, ARTIST_SIMILAR_RECS, 1)
         cache[r["name"]] = tracks[r["name"]]
 
     save_cache(cache)
 
 
+@retry(
+    exceptions=(musicbrainz.NetworkError,),
+)
 def get_artist_top_tracks(
-    tracks: dict, artist_name: str, track_name: str | None = None, limit: int | None = 10
+    tracks: dict, artist_name: str, track_name: str | None = None, limit: int | None = 10, w: int = 1
 ) -> None:
     """Get top and similar tracks for artist."""
-    try:
-        result = musicbrainz.search_artists(artist=artist_name, limit=1, strict=True)
-        if len(result["artist-list"]) > 0:
-            artist = result["artist-list"][0]
-        else:
-            return
-
-        get_artist_tracks(tracks, artist, track_name, limit=limit)
-    except musicbrainz.NetworkError:
+    result = musicbrainz.search_artists(artist=artist_name, limit=1, strict=False)
+    if len(result["artist-list"]) > 0:
+        artist = result["artist-list"][0]
+    else:
         return
+
+    get_artist_tracks(tracks, artist, track_name, limit=limit, w=w)
 
 
 def track_description(mb_genres: List | None) -> str:
@@ -266,26 +302,29 @@ def track_description(mb_genres: List | None) -> str:
 
 def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
     """Get current user recently played tracks and top tracks."""
-    top = [t["track"] for t in sp.current_user_recently_played(limit=limit_r)["items"]]
-    top.extend(sp.current_user_top_tracks(limit=limit_r, time_range="short_term")["items"])
-    top.extend(sp.current_user_top_tracks(limit=limit_t, time_range="medium_term")["items"])
-    top.extend(sp.current_user_top_tracks(limit=limit_t, time_range="long_term")["items"])
+    top = [(t["track"], limit_r) for t in sp.current_user_recently_played(limit=limit_r)["items"]]
+    top.extend([(t, limit_r) for t in sp.current_user_top_tracks(limit=limit_r, time_range="short_term")["items"]])
+    top.extend([(t, limit_t) for t in sp.current_user_top_tracks(limit=limit_t, time_range="medium_term")["items"]])
+    top.extend([(t, limit_t) for t in sp.current_user_top_tracks(limit=limit_t, time_range="long_term")["items"]])
 
     user_tracks: dict = {}
-    for f in tqdm(top):
+    for f, w in tqdm(top):
         if "artists" in f:
             track = f["name"]
             for artist in f["artists"]:
+                if artist["name"] in user_tracks:
+                    continue
                 get_artist_top_tracks(
                     user_tracks,
                     artist_name=artist["name"],
                     track_name=track,
-                    limit=ARTIST_SIMILAR_RECS,
+                    limit=1,
+                    w=w,
                 )
         else:
             if f["name"] in user_tracks:
                 continue
-            get_artist_top_tracks(user_tracks, artist_name=f["name"], track_name=None, limit=ARTIST_SIMILAR_RECS)
+            get_artist_top_tracks(user_tracks, artist_name=f["name"], track_name=None, limit=1, w=w)
 
     return user_tracks
 
@@ -293,27 +332,22 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
 def embed_tags(tags: List, lookup: dict, dim: int) -> np.array:
     """Compute vectors for each tag."""
     vectors = [lookup[t] for t in tags if t in lookup]
-    if vectors:
-        s = MinMaxScaler()
-        scaled = s.fit_transform(vectors)
-        return np.mean(scaled, axis=0)
-    else:
-        return np.zeros(dim)
+    return np.mean(vectors, axis=0) if vectors else np.zeros(dim)
 
 
 def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     """Generate recommendations using Tfid vectorizer."""
-    embedding_dim = len(next(iter(mwe_lookup.values())))
-
     cand_descs = []
     tracks_descs = []
     embed_descs = []
+    tracks_weights = []
 
     for a in tqdm(top_tracks.keys()):
         for t in top_tracks[a]["tracks"]:
             cand_descs.append(track_description(t["tags"]))
             tracks_descs.append((a, t["name"], t["tags"], t["uri"], t["rank"]))
             embed_descs.append(embed_tags(t["tags"], mwe_lookup, embedding_dim))
+            tracks_weights.append(top_tracks[a]["w"])
     for a in tqdm(latest_tracks.keys()):
         # Shuffle artist tracks
         shuffle(latest_tracks[a]["tracks"])
@@ -322,6 +356,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
             cand_descs.append(track_description(t["tags"]))
             tracks_descs.append((a, t["name"], t["tags"], t["uri"], t["rank"]))
             embed_descs.append(embed_tags(t["tags"], mwe_lookup, embedding_dim))
+            tracks_weights.append(latest_tracks[a]["w"])
 
     top_indices = [
         i
@@ -333,6 +368,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     candidate_indices = [i for i in range(len(tracks_descs)) if i not in top_indices]
     tracks_descs = [t for i, t in enumerate(tracks_descs) if i in candidate_indices]
     ranks = [r for i, (_, _, _, _, r) in enumerate(tracks_descs) if i in candidate_indices]
+    tracks_weights = np.array(tracks_weights)
 
     vectorizer = TfidfVectorizer(
         stop_words=None,
@@ -345,9 +381,9 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     X = vectorizer.fit_transform(cand_descs)
     track_embeddings = csr_matrix(np.array(embed_descs)).toarray()
 
-    X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1), track_embeddings.std(axis=1).reshape(-1, 1)])
+    X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1)])
     sims = cosine_similarity(
-        np.max(X[top_indices], axis=0).reshape(1, -1),
+        np.average(X[top_indices], axis=0, weights=tracks_weights[top_indices]).reshape(1, -1),
         X[candidate_indices],
     ).ravel()
     print(len(tracks_descs), len(top_indices), len(candidate_indices), len(sims), len(tracks_descs))
@@ -365,6 +401,14 @@ def create_playlist(recommended: List) -> None:
             sp.user_playlist_add_tracks(user=user_name, playlist_id=playlist_id, tracks=[uri])
 
 
+@retry(
+    exceptions=(musicbrainz.NetworkError,),
+)
+def find_similar_artists(g: str, artists: dict) -> None:
+    """Find artists with genre 'g'."""
+    artists["artist-list"].extend(musicbrainz.search_artists(tag=g, limit=ARTIST_SIMILAR, offset=None)["artist-list"])
+
+
 def recommend() -> None:
     """Generate recommendations for user."""
     tracks = {}
@@ -372,38 +416,34 @@ def recommend() -> None:
     user_tracks = get_top_tracks(limit_r=USER_RECENT, limit_t=USER_GLOBAL)
     latest_tracks: dict = {}
     for k in tqdm(user_tracks.keys()):
-        artist = user_tracks[k]
-        if len(artist["genres"]) == 0:
+        if len(user_tracks[k]["genres"]) == 0:
             continue
-        try:
-            artists = musicbrainz.search_artists(tag=artist["genres"], limit=ARTIST_SIMILAR, offset=None)
-            artists["artist-list"].append({"id": artist["id"], "name": k})
-            get_similar_artist_tracks(latest_tracks, artists)
-        except musicbrainz.NetworkError:
-            continue
+        artists: dict = {"artist-list": []}
+        for g in user_tracks[k]["genres"]:
+            find_similar_artists(g, artists)
+        artists["artist-list"].append({"id": user_tracks[k]["id"], "name": k})
+        get_similar_artist_tracks(latest_tracks, artists)
 
     ranked = generate_recommends(user_tracks, latest_tracks)
-    shuffle(ranked)
 
     print("Top recommendations:")
-    recommended = []
     for i, ((artist, track, d, uri, rank), score, _) in enumerate(ranked, start=0):
-        if artist in tracks and track in tracks[artist]:
+        if artist in tracks:
             continue
 
         if score >= SIM_THRESHOLD and uri is not None and uri not in blacklist:
             print(f"{i:2d}. {artist} — {track}  (rank={rank:.2f}, sim={score:.2f}, d='{d}')")
-            tracks[artist] = [track]
-            recommended.append(uri)
-        if len(recommended) >= MAX_NEW:
+            tracks[artist] = {"track": track, "uri": uri}
+        if len(tracks) >= MAX_NEW:
             break
 
-    create_playlist(recommended)
+    create_playlist([t["uri"] for _, t in tracks.items()])
 
 
 sp = sp_client()
 ds = load_dataset("seungheondoh/musical-word-embedding", split="tag")
 mwe_lookup = {row["token"]: np.array(row["vector"]) for row in ds}
+embedding_dim = len(next(iter(mwe_lookup.values())))
 
 if __name__ == "__main__":
     recommend()
