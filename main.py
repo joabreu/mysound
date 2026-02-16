@@ -22,8 +22,8 @@ from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
 
 USER_RECENT = 3
-USER_GLOBAL = 10
-ARTIST_SIMILAR = 5
+USER_GLOBAL = 15
+ARTIST_SIMILAR = 10
 ARTIST_SIMILAR_RECS = 10  # None # To fetch all tracks
 SIM_THRESHOLD = 0.25
 MAX_NEW = 50
@@ -425,6 +425,7 @@ def recommend() -> None:
         get_similar_artist_tracks(latest_tracks, artists)
 
     ranked = generate_recommends(user_tracks, latest_tracks)
+    shuffle(ranked)
 
     print("Top recommendations:")
     for i, ((artist, track, d, uri, rank), score, _) in enumerate(ranked, start=0):
