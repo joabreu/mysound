@@ -22,9 +22,9 @@ jobs:
         curl -LsSf https://astral.sh/uv/install.sh | sh
         uv venv
         uv pip install -e .
-    - name: Write Spotify cache
+    - name: Write YTMUSIC cache
       run: |
-        echo '${{ secrets.SPOTIFY_CACHE_JSON }}' > .cache-spotify
+        echo '${{ secrets.YT_CACHE_JSON }}' > .headers-auth.json
     - name: Run
       env:
         SPOTIPY_CLIENT_ID: ${{ secrets.SPOTIPY_CLIENT_ID }}
