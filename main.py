@@ -126,7 +126,10 @@ def deezer_track_description_from_name(artist_name: str, track_name: str) -> Lis
 def find_yttrack(track: str, artist: str) -> Tuple[str | None, str | None, float]:
     """Return YouTube Music videoId and pseudo-popularity."""
     query = f"{track} {artist}"
-    results = yt.search(query, filter="songs", limit=1)
+    try:
+        results = yt.search(query, filter="songs", limit=1)
+    except json.JSONDecodeError:
+        results = []
 
     for item in results:
         title = item.get("title", "")
