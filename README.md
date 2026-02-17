@@ -1,22 +1,29 @@
 # mysound
 
-A Spotify recommender system that creates personalized playlists based on your previous and current tastes.
+A **YouTube Music** recommender system that creates personalized playlists based on your previous and current tastes.
+
+Originally built for Spotify, it was switched to YouTube Music after recent API changes limited free developer access.
 
 ## Setup
 
-Get API keys from [Spotify for developers](https://developer.spotify.com/dashboard/create) and create `.env` with them:
+```
+uv pip install -e .
+```
 
+- Go to [YouTube Music](https://music.youtube.com) and log in.
+- Use the `ytmusicapi setup` command to generate your `.headers_auth.json` file:
+
+```bash
+ytmusicapi setup
 ```
-echo "SPOTIPY_CLIENT_ID=<client-id>" > .env
-echo "SPOTIPY_CLIENT_SECRET=<client-secret>" >> .env
-echo "SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback" >> .env
-```
+
+- Save the generated `.headers_auth.json` in the root of your project.
+- This file contains your browser authentication headers and allows the app to access your playlists and library.
 
 ## For GitHub Actions
 
 - Save all .env credentials in GitHub secrets.
 - Setup the repo first in your local env.
-- Login using OAUTH then save the `.cache-spotify` JSON file output into the GitHub secret `SPOTIFY_CACHE_JSON`.
 
 Default workflow in this repo will run everyday at midnight and create a new playlist.
 
@@ -38,12 +45,6 @@ For playlist creation:
 
 - `SIM_THRESHOLD`: Similarity threshold lowerbound, ranges from `0.0` to `1.0`.
 - `MAX_NEW`: Maximum number of tracks to add in playlist which are above the `SIM_THRESHOLD`.
-
-## Dev
-
-```
-uv pip install -e .
-```
 
 ## Run
 
