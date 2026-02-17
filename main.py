@@ -276,7 +276,7 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
     # Library songs (top)
     library = yt.get_library_songs(limit=limit_t, order="recently_added")
     for item in library[:limit_t]:
-        top.append((item, limit_r))
+        top.append((item, limit_t))
 
     user_tracks: dict = {}
     for f, w in tqdm(top):
