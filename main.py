@@ -274,7 +274,7 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
             top.append((item, limit_r))
 
     # Library songs (top)
-    library = yt.get_library_songs(limit=limit_t, order="recently_added")
+    library = yt.get_library_artists(limit=limit_t, order="recently_added")
     for item in library[:limit_t]:
         top.append((item, limit_t))
 
@@ -293,9 +293,9 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
                     w=w,
                 )
         else:
-            if f["name"] in user_tracks:
+            if f["artist"] in user_tracks:
                 continue
-            get_artist_top_tracks(user_tracks, artist_name=f["name"], track_name=None, limit=1, w=w)
+            get_artist_top_tracks(user_tracks, artist_name=f["artist"], track_name=None, limit=1, w=w)
 
     return user_tracks
 
