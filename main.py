@@ -10,7 +10,6 @@ from typing import Any, List, Tuple
 
 import numpy as np
 import requests
-import spotipy
 from datasets import load_dataset
 from dotenv import load_dotenv
 from fuzzywuzzy import fuzz
@@ -18,10 +17,10 @@ from musicbrainzngs import musicbrainz
 from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from spotipy.oauth2 import SpotifyOAuth
 from tqdm import tqdm
+from ytmusicapi import YTMusic
 
-USER_RECENT = 3
+USER_RECENT = 10
 USER_GLOBAL = 15
 ARTIST_SIMILAR = 10
 ARTIST_SIMILAR_RECS = 10  # None # To fetch all tracks
@@ -65,21 +64,6 @@ def retry(
         return wrapper
 
     return decorator
-
-
-def sp_client() -> Any:
-    """Create and return a Spotify client."""
-    return spotipy.Spotify(
-        auth_manager=SpotifyOAuth(
-            scope=" ".join(SCOPES),
-            client_id=os.getenv("SPOTIPY_CLIENT_ID"),
-            client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
-            cache_path=".cache-spotify",
-        ),
-        requests_timeout=10,
-        retries=10,
-        backoff_factor=0.3,
-    )
 
 
 def load_cache() -> dict:
@@ -139,53 +123,40 @@ def deezer_track_description_from_name(artist_name: str, track_name: str) -> Lis
     ]
 
 
-@musicbrainz._rate_limit  # pylint:disable=protected-access
-def find_sptrack(track: str, artist: str) -> Tuple[str | None, str | None, float]:
-    """Return a track Spotify given track name and artist name."""
-    query = "artist:" + artist + " track:" + track
-    t = sp.search(q=query[: min(250, len(query))], limit=1, type="track")
-    if len(t["tracks"]["items"]):
-        sp_track = t["tracks"]["items"][0]
-        sp_name = sp_track["name"]
-        for a in sp_track["artists"]:
-            if fuzz.partial_ratio(a, artist) > 90 and fuzz.partial_ratio(sp_name, track) > 90:
-                return a["id"], sp_track["uri"], np.log1p(sp_track["popularity"])
+def find_yttrack(track: str, artist: str) -> Tuple[str | None, str | None, float]:
+    """Return YouTube Music videoId and pseudo-popularity."""
+    query = f"{track} {artist}"
+    results = yt.search(query, filter="songs", limit=1)
+
+    for item in results:
+        title = item.get("title", "")
+        artists = " ".join(a["name"] for a in item.get("artists", []))
+
+        if (
+            fuzz.partial_ratio(title.lower(), track.lower()) > 90
+            and fuzz.partial_ratio(artists.lower(), artist.lower()) > 90
+        ):
+            video_id = item["videoId"]
+            return "", video_id, 0.0  # score not available in YT
     return None, None, 0.0
 
 
-@musicbrainz._rate_limit  # pylint:disable=protected-access
-def find_sptags(artist_id: str) -> List:
-    """Return a genre for Spotify artist given artist ID."""
-    a = sp.artist(artist_id)
-    return a["genres"] if a is not None else [""]
-
-
-@musicbrainz._rate_limit  # pylint:disable=protected-access
-def get_blacklist() -> List:
-    """Return all playlists owned by the user that are from mysound."""
-    playlists = []
-    results = sp.current_user_playlists()
-    playlists.extend(results["items"])
-    while results["next"]:
-        results = sp.next(results)
-        playlists.extend(results["items"])
-
-    playlists = [p for p in playlists if p["name"].startswith(PLAYLIST_PREFIX)]
+def get_blacklist() -> list[str]:
+    """Get list of already recommended tracks."""
+    playlists = yt.get_library_playlists(limit=None)
     blacklist = []
     for p in playlists:
-        results = sp.playlist_items(p["id"], fields="items.track.uri,next", additional_types=["track"])
-        blacklist.extend([item["track"]["uri"] for item in results["items"] if item["track"]])
-        while results["next"]:
-            results = sp.next(results)
-            blacklist.extend([item["track"]["uri"] for item in results["items"] if item["track"]])
-
+        if p["title"].startswith(PLAYLIST_PREFIX):
+            tracks = yt.get_playlist(p["playlistId"], limit=None)
+            for t in tracks["tracks"]:
+                if "videoId" in t:
+                    blacklist.append(t["videoId"])
     return blacklist
 
 
 def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: List | None = None) -> List:
     """Add artist genres and tracks."""
     tracks = []
-    sp_tags_artist = None
     deezer_tags_artist = None
     for r in releases["release-list"]:
         if "id" in r:
@@ -201,15 +172,7 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
                 deezer_tags_artist = deezer_track_description_from_name(artist_name, t_1["title"])
             tags = deezer_tags_artist + tags
 
-            try:
-                aid, uri, sp_rank = find_sptrack(track=t_1["title"], artist=artist_name)
-                if aid is not None and sp_tags_artist is None:
-                    sp_tags_artist = find_sptags(artist_id=aid)
-            except spotipy.exceptions.SpotifyException:
-                uri, sp_rank = None, 0.0
-
-            if sp_tags_artist is not None:
-                tags = sp_tags_artist + tags
+            _, uri, sp_rank = find_yttrack(track=t_1["title"], artist=artist_name)
             tracks.append(
                 {
                     "name": t_1["title"],
@@ -302,15 +265,23 @@ def track_description(mb_genres: List | None) -> str:
 
 def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
     """Get current user recently played tracks and top tracks."""
-    top = [(t["track"], limit_r) for t in sp.current_user_recently_played(limit=limit_r)["items"]]
-    top.extend([(t, limit_r) for t in sp.current_user_top_tracks(limit=limit_r, time_range="short_term")["items"]])
-    top.extend([(t, limit_t) for t in sp.current_user_top_tracks(limit=limit_t, time_range="medium_term")["items"]])
-    top.extend([(t, limit_t) for t in sp.current_user_top_tracks(limit=limit_t, time_range="long_term")["items"]])
+    top = []
+
+    # Recently played
+    history = yt.get_history()
+    for item in history[:limit_r]:
+        if "videoId" in item:
+            top.append((item, limit_r))
+
+    # Library songs (top)
+    library = yt.get_library_songs(limit=limit_t, order="recently_added")
+    for item in library[:limit_t]:
+        top.append((item, limit_r))
 
     user_tracks: dict = {}
     for f, w in tqdm(top):
         if "artists" in f:
-            track = f["name"]
+            track = f["title"]
             for artist in f["artists"]:
                 if artist["name"] in user_tracks:
                     continue
@@ -392,13 +363,11 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
 
 def create_playlist(recommended: List) -> None:
     """Create new playlist given recommended tracks."""
-    user_name = sp.current_user()["uri"].split(":")[2]
     if len(recommended):
         playlist_date = datetime.now().strftime("%b/%-d")
         playlist_name = f"{PLAYLIST_PREFIX} ({playlist_date})"
-        playlist_id = sp.user_playlist_create(user=user_name, name=playlist_name)["id"]
-        for uri in recommended:
-            sp.user_playlist_add_tracks(user=user_name, playlist_id=playlist_id, tracks=[uri])
+        playlist_id = yt.create_playlist(playlist_name, "Created by mySound")
+        yt.add_playlist_items(playlist_id, recommended)
 
 
 @retry(
@@ -441,7 +410,7 @@ def recommend() -> None:
     create_playlist([t["uri"] for _, t in tracks.items()])
 
 
-sp = sp_client()
+yt = YTMusic(".headers-auth.json")
 ds = load_dataset("seungheondoh/musical-word-embedding", split="tag")
 mwe_lookup = {row["token"]: np.array(row["vector"]) for row in ds}
 embedding_dim = len(next(iter(mwe_lookup.values())))
