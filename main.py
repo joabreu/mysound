@@ -23,7 +23,7 @@ from ytmusicapi import YTMusic
 USER_RECENT = 10
 USER_GLOBAL = 15
 ARTIST_SIMILAR = 10
-ARTIST_SIMILAR_RECS = 10  # None # To fetch all tracks
+ARTIST_SIMILAR_RECS = None  # To fetch all tracks
 SIM_THRESHOLD = 0.25
 MAX_NEW = 50
 
