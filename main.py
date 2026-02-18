@@ -20,11 +20,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from ytmusicapi import YTMusic
 
-USER_RECENT = 10
+USER_RECENT = 5
 USER_GLOBAL = 15
 ARTIST_SIMILAR = 10
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.25
+SIM_THRESHOLD = 0.40
 MAX_NEW = 50
 
 load_dotenv()
