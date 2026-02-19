@@ -21,8 +21,8 @@ from tqdm import tqdm
 from ytmusicapi import YTMusic
 
 USER_RECENT = 5
-USER_GLOBAL = 15
-ARTIST_SIMILAR = 10
+USER_GLOBAL = 10
+ARTIST_SIMILAR = 5
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
 SIM_THRESHOLD = 0.40
 MAX_NEW = 50
@@ -35,7 +35,7 @@ SCOPES = ["user-top-read", "playlist-modify-private", "user-read-recently-played
 PLAYLIST_PREFIX = "Recommended by MySound"
 
 musicbrainz.set_useragent("mysound", "0.1", "mysound@domain.com")
-musicbrainz.set_rate_limit(limit_or_interval=15.0, new_requests=9)
+musicbrainz.set_rate_limit(limit_or_interval=1.0, new_requests=1)
 
 
 def retry(
