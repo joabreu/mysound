@@ -19,12 +19,13 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from ytmusicapi import YTMusic
+from ytmusicapi.exceptions import YTMusicServerError
 
 USER_RECENT = 5
 USER_GLOBAL = 10
-ARTIST_SIMILAR = 3
+ARTIST_SIMILAR = 5
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.30
+SIM_THRESHOLD = 0.40
 MAX_NEW = 50
 
 load_dotenv()
@@ -371,7 +372,10 @@ def create_playlist(recommended: List) -> None:
         playlist_name = f"{PLAYLIST_PREFIX} ({playlist_date})"
         playlist_id = yt.create_playlist(playlist_name, "Created by mySound")
         for track in recommended:
-            yt.add_playlist_items(playlist_id, [track])
+            try:
+                yt.add_playlist_items(playlist_id, [track])
+            except YTMusicServerError:
+                pass
 
 
 @retry(
