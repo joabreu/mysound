@@ -22,9 +22,9 @@ from ytmusicapi import YTMusic
 
 USER_RECENT = 5
 USER_GLOBAL = 10
-ARTIST_SIMILAR = 5
+ARTIST_SIMILAR = 3
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.25
+SIM_THRESHOLD = 0.30
 MAX_NEW = 50
 
 load_dotenv()
@@ -298,7 +298,7 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
         else:
             if f["artist"] in user_tracks:
                 continue
-            get_artist_top_tracks(user_tracks, artist_name=f["artist"], track_name=None, limit=3, w=w)
+            get_artist_top_tracks(user_tracks, artist_name=f["artist"], track_name=None, limit=1, w=w)
 
     return user_tracks
 
@@ -370,7 +370,8 @@ def create_playlist(recommended: List) -> None:
         playlist_date = datetime.now().strftime("%b/%-d")
         playlist_name = f"{PLAYLIST_PREFIX} ({playlist_date})"
         playlist_id = yt.create_playlist(playlist_name, "Created by mySound")
-        yt.add_playlist_items(playlist_id, recommended)
+        for track in recommended:
+            yt.add_playlist_items(playlist_id, [track])
 
 
 @retry(
