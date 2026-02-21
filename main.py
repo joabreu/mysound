@@ -23,7 +23,7 @@ from ytmusicapi.exceptions import YTMusicServerError
 
 USER_RECENT = 3
 USER_GLOBAL = 10
-ARTIST_SIMILAR = 10
+ARTIST_SIMILAR = 15
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
 SIM_THRESHOLD = 0.40
 MAX_NEW = 50
@@ -365,6 +365,14 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     return sorted(zip(tracks_descs, sims, ranks), key=lambda p: p[1], reverse=True)
 
 
+@retry(
+    exceptions=(YTMusicServerError,),
+)
+def add_to_playlist(playlist_id: str, track: str) -> None:
+    """Add music to playlist."""
+    yt.add_playlist_items(playlist_id, [track], duplicates=True)
+
+
 def create_playlist(recommended: List) -> None:
     """Create new playlist given recommended tracks."""
     if len(recommended):
@@ -372,10 +380,7 @@ def create_playlist(recommended: List) -> None:
         playlist_name = f"{PLAYLIST_PREFIX} ({playlist_date})"
         playlist_id = yt.create_playlist(playlist_name, "Created by mySound")
         for track in recommended:
-            try:
-                yt.add_playlist_items(playlist_id, [track])
-            except YTMusicServerError:
-                pass
+            add_to_playlist(playlist_id, track)
 
 
 @retry(
