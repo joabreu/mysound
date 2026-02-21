@@ -151,7 +151,10 @@ def get_blacklist() -> list[str]:
     blacklist = []
     for p in playlists:
         if p["title"].startswith(PLAYLIST_PREFIX):
-            tracks = yt.get_playlist(p["playlistId"], limit=None)
+            try:
+                tracks = yt.get_playlist(p["playlistId"], limit=None)
+            except json.JSONDecodeError:
+                tracks = {"tracks": []}
             for t in tracks["tracks"]:
                 if "videoId" in t:
                     blacklist.append(t["videoId"])
