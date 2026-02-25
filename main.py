@@ -21,7 +21,7 @@ from tqdm import tqdm
 from ytmusicapi import YTMusic
 from ytmusicapi.exceptions import YTMusicServerError
 
-USER_RECENT = 5
+USER_RECENT = 3
 USER_GLOBAL = 10
 ARTIST_SIMILAR = 5
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
@@ -359,7 +359,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     X = vectorizer.fit_transform(cand_descs)
     track_embeddings = csr_matrix(np.array(embed_descs)).toarray()
 
-    X = np.hstack([X.toarray(), track_embeddings.max(axis=1).reshape(-1, 1)])
+    X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1)])
     sims = cosine_similarity(
         np.average(X[top_indices], axis=0, weights=tracks_weights[top_indices]).reshape(1, -1),
         X[candidate_indices],
