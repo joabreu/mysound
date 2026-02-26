@@ -16,6 +16,7 @@ from fuzzywuzzy import fuzz
 from musicbrainzngs import musicbrainz
 from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from ytmusicapi import YTMusic
@@ -358,8 +359,10 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
 
     X = vectorizer.fit_transform(cand_descs)
     track_embeddings = csr_matrix(np.array(embed_descs)).toarray()
+    scaler = StandardScaler()
+    track_embeddings = scaler.fit_transform(track_embeddings)
 
-    X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1)])
+    X = np.hstack([X.toarray(), track_embeddings])
     sims = cosine_similarity(
         np.average(X[top_indices], axis=0, weights=tracks_weights[top_indices]).reshape(1, -1),
         X[candidate_indices],
@@ -369,7 +372,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
 
 
 @retry(
-    exceptions=(YTMusicServerError,),
+    exceptions=(YTMusicServerError, json.JSONDecodeError, ),
 )
 def add_to_playlist(playlist_id: str, track: str) -> None:
     """Add music to playlist."""
