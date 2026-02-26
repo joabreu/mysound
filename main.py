@@ -362,7 +362,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     scaler = StandardScaler()
     track_embeddings = scaler.fit_transform(track_embeddings)
 
-    X = np.hstack([X.toarray(), track_embeddings])
+    X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1)])
     sims = cosine_similarity(
         np.average(X[top_indices], axis=0, weights=tracks_weights[top_indices]).reshape(1, -1),
         X[candidate_indices],
