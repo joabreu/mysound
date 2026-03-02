@@ -23,10 +23,10 @@ from ytmusicapi import YTMusic
 from ytmusicapi.exceptions import YTMusicServerError
 
 USER_RECENT = 3
-USER_GLOBAL = 10
+USER_GLOBAL = 20
 ARTIST_SIMILAR = 5
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.90
+SIM_THRESHOLD = 0.95
 MAX_NEW = 50
 
 load_dotenv()
@@ -354,7 +354,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
         use_idf=True,
-        min_df=0.01,
+        min_df=0.005,
     )
 
     X = vectorizer.fit_transform(cand_descs)
