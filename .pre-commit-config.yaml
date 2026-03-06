@@ -19,13 +19,13 @@ repos:
     -   id: pre-commit-update
 
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.4
+    rev: v0.15.5
     hooks:
     -   id: ruff
         args: ['--fix', '--line-length=120', '--exit-non-zero-on-fix', '--show-fixes']
 
 -   repo: https://github.com/psf/black
-    rev: 26.1.0
+    rev: 26.3.0
     hooks:
     -   id: black
         args: ['--line-length=120']
