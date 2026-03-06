@@ -17,7 +17,6 @@ from musicbrainzngs import musicbrainz
 from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 from ytmusicapi import YTMusic
 from ytmusicapi.exceptions import YTMusicServerError
@@ -26,7 +25,7 @@ USER_RECENT = 3
 USER_GLOBAL = 20
 ARTIST_SIMILAR = 5
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.95
+SIM_THRESHOLD = 0.20
 MAX_NEW = 50
 
 load_dotenv()
@@ -233,7 +232,7 @@ def get_artist_tracks(
     print(artist["name"], tracks[artist["name"]]["genres"])
 
 
-def get_similar_artist_tracks(tracks: dict, artists: dict) -> None:
+def get_similar_artist_tracks(tracks: dict, artists: dict, w: int = 1) -> None:
     """Get similar artist tracks."""
     cache = load_cache()
 
@@ -242,9 +241,9 @@ def get_similar_artist_tracks(tracks: dict, artists: dict) -> None:
             continue
         if r["name"] in cache:
             tracks[r["name"]] = cache[r["name"]]
-            tracks[r["name"]]["w"] = 1
+            tracks[r["name"]]["w"] = w
             continue
-        get_artist_tracks(tracks, r, None, ARTIST_SIMILAR_RECS, 1)
+        get_artist_tracks(tracks, r, None, ARTIST_SIMILAR_RECS, w)
         cache[r["name"]] = tracks[r["name"]]
 
     save_cache(cache)
@@ -328,9 +327,6 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
             embed_descs.append(embed_tags(t["tags"], mwe_lookup, embedding_dim))
             tracks_weights.append(top_tracks[a]["w"])
     for a in tqdm(latest_tracks.keys()):
-        # Shuffle artist tracks
-        shuffle(latest_tracks[a]["tracks"])
-
         for t in latest_tracks[a]["tracks"]:
             cand_descs.append(track_description(t["tags"]))
             tracks_descs.append((a, t["name"], t["tags"], t["uri"], t["rank"]))
@@ -354,14 +350,16 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
         use_idf=True,
-        min_df=0.005,
+        min_df=0.01,
     )
 
     X = vectorizer.fit_transform(cand_descs)
     track_embeddings = csr_matrix(np.array(embed_descs)).toarray()
-    track_embeddings = StandardScaler().fit_transform(track_embeddings)
 
-    X = np.hstack([X.toarray(), track_embeddings.max(axis=1).reshape(-1, 1)])
+    X = np.hstack([X.toarray(), track_embeddings.mean(axis=1).reshape(-1, 1)])
+    # X = StandardScaler().fit_transform(X)
+
+    print(X)
     sims = cosine_similarity(
         np.average(X[top_indices], axis=0, weights=tracks_weights[top_indices]).reshape(1, -1),
         X[candidate_indices],
@@ -418,7 +416,7 @@ def recommend() -> None:
         for g in user_tracks[k]["genres"]:
             find_similar_artists(g, artists)
         artists["artist-list"].append({"id": user_tracks[k]["id"], "name": k})
-        get_similar_artist_tracks(latest_tracks, artists)
+        get_similar_artist_tracks(latest_tracks, artists, user_tracks[k]["w"])
 
     ranked = generate_recommends(user_tracks, latest_tracks)
     shuffle(ranked)
