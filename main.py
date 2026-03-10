@@ -16,7 +16,6 @@ from fuzzywuzzy import fuzz
 from musicbrainzngs import musicbrainz
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 from ytmusicapi import YTMusic
 from ytmusicapi.exceptions import YTMusicServerError
@@ -25,7 +24,7 @@ USER_RECENT = 3
 USER_GLOBAL = 20
 ARTIST_SIMILAR = 7
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.30
+SIM_THRESHOLD = 0.50
 MAX_NEW = 50
 
 load_dotenv()
@@ -355,7 +354,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
 
     X = vectorizer.fit_transform(cand_descs)
     X = np.hstack([X.toarray()])
-    X = StandardScaler().fit_transform(X)
+    # X = StandardScaler().fit_transform(X)
 
     print(X)
     sims = cosine_similarity(
