@@ -14,7 +14,6 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from fuzzywuzzy import fuzz
 from musicbrainzngs import musicbrainz
-from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
@@ -26,7 +25,7 @@ USER_RECENT = 3
 USER_GLOBAL = 20
 ARTIST_SIMILAR = 7
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.40
+SIM_THRESHOLD = 0.30
 MAX_NEW = 50
 
 load_dotenv()
@@ -355,9 +354,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     )
 
     X = vectorizer.fit_transform(cand_descs)
-    track_embeddings = csr_matrix(np.array(embed_descs)).toarray()
-
-    X = np.hstack([X.toarray(), track_embeddings])
+    X = np.hstack([X.toarray()])
     X = StandardScaler().fit_transform(X)
 
     print(X)
