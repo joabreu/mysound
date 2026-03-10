@@ -17,6 +17,7 @@ from musicbrainzngs import musicbrainz
 from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 from ytmusicapi import YTMusic
 from ytmusicapi.exceptions import YTMusicServerError
@@ -25,7 +26,7 @@ USER_RECENT = 3
 USER_GLOBAL = 20
 ARTIST_SIMILAR = 5
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.90
+SIM_THRESHOLD = 0.40
 MAX_NEW = 50
 
 load_dotenv()
@@ -357,7 +358,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     track_embeddings = csr_matrix(np.array(embed_descs)).toarray()
 
     X = np.hstack([X.toarray(), track_embeddings])
-    # X = StandardScaler().fit_transform(X)
+    X = StandardScaler().fit_transform(X)
 
     print(X)
     sims = cosine_similarity(
