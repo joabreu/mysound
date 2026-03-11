@@ -14,6 +14,7 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from fuzzywuzzy import fuzz
 from musicbrainzngs import musicbrainz
+from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
@@ -22,9 +23,9 @@ from ytmusicapi.exceptions import YTMusicServerError
 
 USER_RECENT = 3
 USER_GLOBAL = 20
-ARTIST_SIMILAR = 7
+ARTIST_SIMILAR = 5
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.50
+SIM_THRESHOLD = 0.74
 MAX_NEW = 50
 
 load_dotenv()
@@ -349,11 +350,11 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
         use_idf=True,
-        min_df=0.05,
+        min_df=0.10,
     )
 
     X = vectorizer.fit_transform(cand_descs)
-    X = np.hstack([X.toarray()])
+    X = np.hstack([X.toarray(), csr_matrix(np.array(embed_descs)).toarray().max(axis=1).reshape(-1, 1)])
     # X = StandardScaler().fit_transform(X)
 
     print(X)
@@ -412,6 +413,7 @@ def recommend() -> None:
         artists: dict = {"artist-list": []}
         for g in user_tracks[k]["genres"]:
             find_similar_artists(g, artists)
+        find_similar_artists(user_tracks[k]["genres"], artists)
         artists["artist-list"].append({"id": user_tracks[k]["id"], "name": k})
         get_similar_artist_tracks(latest_tracks, artists, user_tracks[k]["w"])
 
