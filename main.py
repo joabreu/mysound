@@ -21,11 +21,11 @@ from tqdm import tqdm
 from ytmusicapi import YTMusic
 from ytmusicapi.exceptions import YTMusicServerError
 
-USER_RECENT = 3
+USER_RECENT = 1
 USER_GLOBAL = 20
-ARTIST_SIMILAR = 5
+ARTIST_SIMILAR = 3
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.74
+SIM_THRESHOLD = 0.40
 MAX_NEW = 50
 
 load_dotenv()
@@ -350,14 +350,14 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
         use_idf=True,
-        min_df=0.03,
+        min_df=0.10,
     )
 
     X = vectorizer.fit_transform(cand_descs)
-    X = np.hstack([X.toarray(), csr_matrix(np.array(embed_descs)).toarray().max(axis=1).reshape(-1, 1)])
+    X = np.hstack([X.toarray(), csr_matrix(np.array(embed_descs)).toarray().mean(axis=1).reshape(-1, 1)])
     # X = StandardScaler().fit_transform(X)
 
-    print(X)
+    print(X, tracks_weights[top_indices])
     sims = cosine_similarity(
         np.average(X[top_indices], axis=0, weights=tracks_weights[top_indices]).reshape(1, -1),
         X[candidate_indices],
