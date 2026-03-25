@@ -23,9 +23,9 @@ from ytmusicapi.exceptions import YTMusicServerError
 
 USER_RECENT = 5
 USER_GLOBAL = 15
-ARTIST_SIMILAR = 3
+ARTIST_SIMILAR = 2
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.65
+SIM_THRESHOLD = 0.60
 MAX_NEW = 50
 
 load_dotenv()
@@ -349,7 +349,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         stop_words=None,
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
-        use_idf=True,
+        use_idf=False,
         min_df=0.01,
     )
 
