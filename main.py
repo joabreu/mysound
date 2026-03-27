@@ -25,7 +25,7 @@ USER_RECENT = 5
 USER_GLOBAL = 15
 ARTIST_SIMILAR = 2
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.60
+SIM_THRESHOLD = 0.20
 MAX_NEW = 50
 
 load_dotenv()
@@ -310,7 +310,7 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
 def embed_tags(tags: List, lookup: dict, dim: int) -> np.array:
     """Compute vectors for each tag."""
     vectors = np.array([lookup[t] for t in tags if t in lookup])
-    return np.nanmean(np.where(vectors != 0, vectors, np.nan), axis=0) if len(vectors) > 0 else np.zeros(dim)
+    return np.mean(vectors, axis=0) if len(vectors) > 0 else np.zeros(dim)
 
 
 def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
@@ -350,11 +350,11 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
         use_idf=False,
-        min_df=0.01,
+        min_df=0.0,
     )
 
     X = vectorizer.fit_transform(cand_descs)
-    X = np.hstack([X.toarray(), csr_matrix(np.array(embed_descs)).toarray().max(axis=1).reshape(-1, 1)])
+    X = np.hstack([X.toarray(), csr_matrix(np.array(embed_descs)).toarray().mean(axis=1).reshape(-1, 1)])
     # X = StandardScaler().fit_transform(X)
 
     print(X, tracks_weights[top_indices])
