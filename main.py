@@ -21,11 +21,11 @@ from tqdm import tqdm
 from ytmusicapi import YTMusic
 from ytmusicapi.exceptions import YTMusicServerError
 
-USER_RECENT = 5
+USER_RECENT = 3
 USER_GLOBAL = 15
 ARTIST_SIMILAR = 2
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.20
+SIM_THRESHOLD = 0.15
 MAX_NEW = 50
 
 load_dotenv()
@@ -350,7 +350,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
         use_idf=False,
-        min_df=0.0,
+        min_df=0.04,
     )
 
     X = vectorizer.fit_transform(cand_descs)
@@ -398,9 +398,12 @@ def create_playlist(recommended: List) -> None:
 )
 def find_similar_artists(g: str, artists: dict) -> None:
     """Find artists with genre 'g'."""
-    artists["artist-list"].extend(musicbrainz.search_artists(tag=g, limit=ARTIST_SIMILAR, offset=None)["artist-list"])
+    artists["artist-list"].extend(
+        musicbrainz.search_artists(tag=g, limit=ARTIST_SIMILAR, offset=None, strict=True)["artist-list"]
+    )
 
 
+# pylint: disable=too-many-locals
 def recommend() -> None:
     """Generate recommendations for user."""
     tracks = {}
@@ -411,9 +414,10 @@ def recommend() -> None:
         if len(user_tracks[k]["genres"]) == 0:
             continue
         artists: dict = {"artist-list": []}
+        g_list = []
         for g in user_tracks[k]["genres"]:
-            find_similar_artists(g, artists)
-        find_similar_artists(user_tracks[k]["genres"], artists)
+            g_list.append(g)
+            find_similar_artists(g_list, artists)
         artists["artist-list"].append({"id": user_tracks[k]["id"], "name": k})
         get_similar_artist_tracks(latest_tracks, artists, user_tracks[k]["w"])
 
