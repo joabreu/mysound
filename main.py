@@ -350,11 +350,11 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
         use_idf=True,
-        min_df=0.02,
+        min_df=0.05,
     )
 
     X = vectorizer.fit_transform(cand_descs)
-    X = np.hstack([X.toarray(), csr_matrix(np.array(embed_descs)).toarray().mean(axis=1).reshape(-1, 1)])
+    X = np.hstack([X.toarray(), csr_matrix(np.array(embed_descs)).toarray().max(axis=1).reshape(-1, 1)])
     # X = StandardScaler().fit_transform(X)
 
     print(X, tracks_weights[top_indices])
