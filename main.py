@@ -21,7 +21,7 @@ from tqdm import tqdm
 from ytmusicapi import YTMusic
 from ytmusicapi.exceptions import YTMusicServerError
 
-USER_RECENT = 5
+USER_RECENT = 3
 USER_GLOBAL = 15
 ARTIST_SIMILAR = 2
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
@@ -349,7 +349,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         stop_words=None,
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 1),
-        use_idf=False,
+        use_idf=True,
         min_df=0.02,
     )
 
