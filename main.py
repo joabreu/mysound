@@ -354,7 +354,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
     )
 
     X = vectorizer.fit_transform(cand_descs)
-    X = np.hstack([X.toarray(), csr_matrix(np.array(embed_descs)).toarray().max(axis=1).reshape(-1, 1)])
+    X = np.hstack([X.toarray(), csr_matrix(np.array(embed_descs)).toarray().mean(axis=1).reshape(-1, 1)])
     # X = StandardScaler().fit_transform(X)
 
     print(X, tracks_weights[top_indices])
