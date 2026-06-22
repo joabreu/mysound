@@ -237,7 +237,7 @@ def get_similar_artist_tracks(tracks: dict, artists: dict, w: int = 1) -> None:
     cache = load_cache()
 
     for r in artists["artist-list"]:
-        if r["name"] in tracks:
+        if r["name"] in tracks and len(r["name"]) > 1:  # To prevent the library ones.
             continue
         if r["name"] in cache:
             tracks[r["name"]] = cache[r["name"]]
