@@ -19,19 +19,19 @@ repos:
     -   id: pre-commit-update
 
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.11
+    rev: v0.15.18
     hooks:
     -   id: ruff
         args: ['--fix', '--line-length=120', '--exit-non-zero-on-fix', '--show-fixes']
 
 -   repo: https://github.com/psf/black
-    rev: 26.3.1
+    rev: 26.5.1
     hooks:
     -   id: black
         args: ['--line-length=120']
 
 -   repo: https://github.com/pycqa/pylint
-    rev: v4.0.5
+    rev: v4.0.6
     hooks:
     -   id: pylint
         args:
@@ -80,7 +80,7 @@ repos:
         args: ['--py38-plus']
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.20.1
+    rev: v2.1.0
     hooks:
     -   id: mypy
         args: [--disallow-untyped-defs, --disallow-incomplete-defs,
