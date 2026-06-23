@@ -14,7 +14,6 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from fuzzywuzzy import fuzz
 from musicbrainzngs import musicbrainz
-from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
@@ -25,7 +24,7 @@ USER_RECENT = 3
 USER_GLOBAL = 15
 ARTIST_SIMILAR = 4
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.15
+SIM_THRESHOLD = 0.50
 MAX_NEW = 50
 
 load_dotenv()
@@ -347,14 +346,15 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
 
     vectorizer = TfidfVectorizer(
         stop_words=None,
-        token_pattern=r"(?u)\b\w\w+[^,]+\b",
-        ngram_range=(1, 1),
-        use_idf=True,
-        min_df=0.01,
+        # token_pattern=r"(?u)\b\w\w+[^,]+\b",
+        ngram_range=(1, 8),
+        use_idf=False,
+        min_df=0.125,
     )
 
     X = vectorizer.fit_transform(cand_descs)
-    X = np.hstack([X.toarray(), csr_matrix(np.array(embed_descs)).toarray().max(axis=1).reshape(-1, 1)])
+    X = X.toarray()
+    # X = np.hstack([X.toarray(), csr_matrix(np.array(embed_descs)).toarray().mean(axis=1).reshape(-1, 1)])
     # X = StandardScaler().fit_transform(X)
 
     print(X, tracks_weights[top_indices])
