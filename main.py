@@ -24,7 +24,7 @@ USER_RECENT = 3
 USER_GLOBAL = 15
 ARTIST_SIMILAR = 5
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.75
+SIM_THRESHOLD = 0.70
 MAX_NEW = 50
 
 load_dotenv()
@@ -348,7 +348,7 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
         stop_words=None,
         token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 8),
-        use_idf=False,
+        use_idf=True,
         min_df=0.25,
     )
 
