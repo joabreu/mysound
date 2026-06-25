@@ -22,9 +22,9 @@ from ytmusicapi.exceptions import YTMusicServerError
 
 USER_RECENT = 3
 USER_GLOBAL = 15
-ARTIST_SIMILAR = 4
+ARTIST_SIMILAR = 5
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
-SIM_THRESHOLD = 0.50
+SIM_THRESHOLD = 0.75
 MAX_NEW = 50
 
 load_dotenv()
@@ -346,10 +346,10 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
 
     vectorizer = TfidfVectorizer(
         stop_words=None,
-        # token_pattern=r"(?u)\b\w\w+[^,]+\b",
+        token_pattern=r"(?u)\b\w\w+[^,]+\b",
         ngram_range=(1, 8),
         use_idf=False,
-        min_df=0.125,
+        min_df=0.25,
     )
 
     X = vectorizer.fit_transform(cand_descs)
