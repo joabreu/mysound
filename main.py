@@ -21,8 +21,8 @@ from ytmusicapi import YTMusic
 from ytmusicapi.exceptions import YTMusicServerError
 
 USER_RECENT = 3
-USER_GLOBAL = 15
-ARTIST_SIMILAR = 5
+USER_GLOBAL = 20
+ARTIST_SIMILAR = 7
 ARTIST_SIMILAR_RECS = None  # To fetch all tracks
 SIM_THRESHOLD = 0.70
 MAX_NEW = 50
