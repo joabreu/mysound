@@ -1,12 +1,12 @@
 """Main module for mysound recommender."""
 
+import datetime
 import functools
 import json
 import os
 import time
-from datetime import datetime
 from random import shuffle
-from typing import Any, List, Tuple
+from typing import Any
 
 import numpy as np
 import requests
@@ -39,7 +39,7 @@ musicbrainz.set_rate_limit(limit_or_interval=1.0, new_requests=1)
 
 
 def retry(
-    exceptions: Tuple,
+    exceptions: tuple,
     max_attempts: int = 10,
     initial_delay: float = 1.0,
     backoff_factor: float = 2.0,
@@ -83,9 +83,9 @@ def save_cache(cache: dict) -> None:
         json.dump(cache, f)
 
 
-def order_filter_tags(tag_list: List, prev_list: List | None = None, token: str = "name", limit: int = 0) -> List:
+def order_filter_tags(tag_list: list, prev_list: list | None = None, token: str = "name", limit: int = 0) -> list:
     """Order and filter music tags."""
-    tags = list(set(sorted([(t[token], t["count"]) for t in tag_list], key=lambda p: p[1], reverse=True)))
+    tags = sorted({(t[token], t["count"]) for t in tag_list}, key=lambda p: p[1])
     if limit > 0:
         tags = [t[0] for t in tags[: min(len(tags), limit)]]
     else:
@@ -96,7 +96,7 @@ def order_filter_tags(tag_list: List, prev_list: List | None = None, token: str 
     return tags
 
 
-def deezer_track_description_from_name(artist_name: str, track_name: str) -> List:
+def deezer_track_description_from_name(artist_name: str, track_name: str) -> list:
     """Search Deezer for a track by artist and title."""
     query = f"{artist_name} {track_name}"
     url = "https://api.deezer.com/search"
@@ -123,7 +123,7 @@ def deezer_track_description_from_name(artist_name: str, track_name: str) -> Lis
     ]
 
 
-def find_yttrack(track: str, artist: str) -> Tuple[str | None, str | None, float]:
+def find_yttrack(track: str, artist: str) -> tuple[str | None, str | None, float]:
     """Return YouTube Music videoId and pseudo-popularity."""
     query = f"{track} {artist}"
     try:
@@ -160,7 +160,7 @@ def get_blacklist() -> list[str]:
     return blacklist
 
 
-def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: List | None = None) -> List:
+def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: list | None = None) -> list:
     """Add artist genres and tracks."""
     tracks = []
     deezer_tags_artist = None
@@ -171,7 +171,7 @@ def add_artist_genres_and_tracks(artist_name: str, releases: dict, prev_tags: Li
             t = r
 
         for t_1 in t["recording-list"]:
-            tags: List = []
+            tags: list = []
             if prev_tags is not None:
                 tags = prev_tags + tags
             if deezer_tags_artist is None:
@@ -264,7 +264,7 @@ def get_artist_top_tracks(
     get_artist_tracks(tracks, artist, track_name, limit=limit, w=w)
 
 
-def track_description(mb_genres: List | None) -> str:
+def track_description(mb_genres: list | None) -> str:
     """Build description string enriched with MusicBrainz genres."""
     return ", ".join(mb_genres) if mb_genres is not None else ""
 
@@ -306,13 +306,13 @@ def get_top_tracks(limit_r: int = 10, limit_t: int = 10) -> dict:
     return user_tracks
 
 
-def embed_tags(tags: List, lookup: dict, dim: int) -> np.array:
+def embed_tags(tags: list, lookup: dict, dim: int) -> np.array:
     """Compute vectors for each tag."""
     vectors = np.array([lookup[t] for t in tags if t in lookup])
     return np.mean(vectors, axis=0) if len(vectors) > 0 else np.zeros(dim)
 
 
-def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
+def generate_recommends(top_tracks: dict, latest_tracks: dict) -> list:
     """Generate recommendations using Tfid vectorizer."""
     cand_descs = []
     tracks_descs = []
@@ -346,10 +346,10 @@ def generate_recommends(top_tracks: dict, latest_tracks: dict) -> List:
 
     vectorizer = TfidfVectorizer(
         stop_words=None,
-        # token_pattern=r"(?u)\b\w\w+[^,]+\b",
-        ngram_range=(1, 8),
+        token_pattern=r"(?u)\b\w\w+[^,]+\b",
+        ngram_range=(1, 4),
         use_idf=True,
-        min_df=0.20,
+        min_df=0.30,
     )
 
     X = vectorizer.fit_transform(cand_descs)
@@ -383,10 +383,10 @@ def add_to_playlist(playlist_id: str, track: str) -> None:
         json.JSONDecodeError,
     ),
 )
-def create_playlist(recommended: List) -> None:
+def create_playlist(recommended: list) -> None:
     """Create new playlist given recommended tracks."""
     if len(recommended):
-        playlist_date = datetime.now().strftime("%b/%-d")
+        playlist_date = datetime.datetime.now(datetime.UTC).strftime("%b/%-d")
         playlist_name = f"{PLAYLIST_PREFIX} ({playlist_date})"
         playlist_id = yt.create_playlist(playlist_name, "Created by mySound")
         for track in recommended:
